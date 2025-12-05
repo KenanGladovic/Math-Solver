@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 # scipy is kept for the linear programming in existing modules if needed, 
 # though curriculum specific methods are preferred.
 from scipy.optimize import linprog 
-
+import plotly.express as px
+import plotly.graph_objects as go
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Math Solver", layout="wide", page_icon="∫")
 
@@ -50,16 +51,16 @@ mode = st.sidebar.radio(
     "Choose Calculation Type:",
     [
         "Front page",
-        "Constrained Optimization (KKT)", 
-        "Subset Analysis (Properties)",
+        "KKT Optimization", 
+        "Subset Analysis",
         "Plotting Tool",
         "Hessian Matrix",
-        "Multivariable Newton's Method (Optimization)", # NEW
+        "Newton's Method (Optimization)", # NEW
         "Symmetric Diagonalization (B^T A B)",
         "Fourier-Motzkin Elimination",
         "Least Squares Fitting (Normal Equations)",     # NEW
         "Perceptron Algorithm",                         # NEW
-        "Linear Algebra", 
+        "Matrix Operations", 
         "Calculus (Diff/Int)", 
         "Equation Solver"
     ]
@@ -79,13 +80,197 @@ def parse_expr(input_str):
     try:
         # standard variables
         x, y, z, t, a, b, c = sp.symbols('x y z t a b c')
-        return sp.sympify(input_str, locals={'x': x, 'y': y, 'z': z, 't': t, 'a': a, 'b': b, 'c': c})
+        return sp.sympify(input_str, locals={'x': x, 'y': y, 'z': z, 't': t, 'a': a, 'b': b, 'c': c, 'pi': sp.pi, 'log': sp.log, 'sin': sp.sin, 'cos': sp.cos, 'exp': sp.exp})
     except Exception as e:
         return None
+
+def check_definiteness_curriculum(A: sp.Matrix, mat_input):
+    """Checks matrix definiteness using curriculum methods (Quadratic Form / 2x2 Criterion)."""
+    
+    output = []
+    
+    # --- Basic Validation ---
+    if A.rows != A.cols:
+        output.append(sp.latex("\\text{Definiteness is only defined for square matrices.}"))
+        return output
+
+    if A != A.transpose():
+        output.append(sp.latex("\\text{Matrix is NOT symmetric. Definiteness check requires a symmetric matrix.}"))
+        return output
+
+    n = A.rows
+    
+    # ----------------------------------------
+    # 1. Quadratic Form (The Definition v^T A v)
+    # ----------------------------------------
+    v_vars = sp.symbols(f'x_{{1}}:{n+1}')
+    v = sp.Matrix(n, 1, v_vars)
+    qf = (v.transpose() * A * v)[0]
+    
+    output.append(sp.latex("\\mathbf{1. \\text{ Quadratic Form (Definition)}}"))
+    output.append(sp.latex(f"v^{{T}} A v = {qf}"))
+
+    # ----------------------------------------
+    # 2. 2x2 Criterion (Exercise 3.42)
+    # ----------------------------------------
+    if n == 2:
+        output.append(sp.latex("\\mathbf{2. } 2 \\times 2 \\text{ Criterion (Exercise 3.42)}}"))
+        
+        # Get symbolic representation of entries a, b, c (for c = a12)
+        a_sym, b_sym, c_sym = A[0, 0], A[1, 1], A[0, 1]
+        delta1 = a_sym
+        delta2 = A.det()
+        
+        # Check if matrix contains defined symbols (like 'a', 'b', 'c')
+        try:
+            # Check for generic symbols like 'a', 'b'
+            contains_symbol = len(qf.free_symbols) > n 
+        except Exception:
+            contains_symbol = False
+            
+        if contains_symbol:
+            output.append(sp.latex("\\text{Criteria in terms of entries:}"))
+            output.append(sp.latex(f"a = {a_sym}"))
+            output.append(sp.latex(f"ab - c^2 = {delta2}"))
+            output.append(sp.latex("\\text{The matrix is: Positive Definite if } a>0 \\text{ and } ab-c^2 > 0 \\text{.}"))
+            output.append(sp.latex("\\text{The matrix is: Positive Semidefinite if } a \\geq 0 \\text{, } b \\geq 0 \\text{ and } ab-c^2 \\geq 0 \\text{.}"))
+            output.append(sp.latex("\\text{The matrix is: Indefinite if } ab-c^2 < 0 \\text{.}"))
+
+        else:
+            # Numerical check using the criterion (must convert to floats/numbers)
+            try:
+                d1_val = float(delta1)
+                d2_val = float(delta2)
+                b_val = float(b_sym)
+                
+                if d1_val > 0 and d2_val > 0:
+                    result = "Positive Definite (PD)"
+                    condition = f"Criterion (Ex. 3.42): $a > 0$ ({d1_val} > 0) and $\\det(A) > 0$ ({d2_val} > 0)."
+                elif d1_val >= 0 and d2_val >= 0 and b_val >= 0:
+                    result = "Positive Semidefinite (PSD)"
+                    condition = f"Criterion: $v^T A v \\geq 0$ verified via $a \\geq 0$, $b \\geq 0$, $\\det(A) \\geq 0$."
+                elif d1_val < 0 and d2_val > 0:
+                     result = "Negative Definite (ND)"
+                     condition = f"Criterion: $a < 0$ ({d1_val} < 0) and $\\det(A) > 0$ ({d2_val} > 0)."
+                elif d1_val <= 0 and d2_val >= 0 and b_val <= 0:
+                    result = "Negative Semidefinite (NSD)"
+                    condition = f"Criterion: $v^T A v \\leq 0$ verified via $a \\leq 0$, $b \\leq 0$, $\\det(A) \\geq 0$."
+                elif d2_val < 0:
+                    result = "Indefinite"
+                    condition = f"Criterion: $\\det(A) < 0$ ({d2_val} < 0) implies Indefinite."
+                else:
+                    result = "Indeterminate/Borderline"
+                    condition = "Requires checking the sign of the quadratic form directly, $v^T A v$."
+
+                output.append(sp.latex(f"\\text{{Result: }} \\mathbf{{{result}}}"))
+                output.append(sp.latex(f"\\text{{Condition: }} {condition}"))
+            except:
+                output.append(sp.latex("\\text{Numerical evaluation failed. Analyze the signs of } a \\text{ and } ab-c^2 \\text{ manually.}"))
+
+
+    # ----------------------------------------
+    # 3. General n x n Matrix (n > 2)
+    # ----------------------------------------
+    if n > 2:
+        output.append(sp.latex("\\mathbf{3. \\text{ General Matrix (n > 2)}}"))
+        output.append(sp.latex("\\text{The required method is to attempt Symmetric Reduction to a diagonal matrix } D = B^{T} A B \\text{ (Theorem 8.29).}"))
+        output.append(sp.latex("\\text{The matrix is classified based on the signs of the entries in } D \\text{ (Exercise 8.28).}"))
+        
+    return output
 
 def latex_print(prefix, expr):
     """Helper to display LaTeX nicely."""
     st.latex(f"{prefix} {sp.latex(expr)}")
+
+# ==========================================
+# 2D PLOTTING HELPER FUNCTIONS (Refactored)
+# ==========================================
+
+# --- HELPER 1: PLOTS CONTOUR LINES FOR THE OBJECTIVE FUNCTION ---
+def plot_objective_contours(f_func, X, Y, ax, f_expr):
+    """Draws contour lines for the 2D objective function."""
+    Z = f_func(X, Y)
+    # Plot Objective Contours (Level sets of f(x,y))
+    contour = ax.contour(X, Y, Z, levels=20, cmap='viridis')
+    ax.clabel(contour, inline=True, fontsize=8)
+    ax.set_title(f"Contour Plot of ${sp.latex(f_expr)}$ with Feasible Region")
+
+# --- HELPER 2: CALCULATES AND PLOTS FEASIBLE REGION (CONSTRAINTS) ---
+def plot_constraints_region(const_str, x_sym, y_sym, X, Y, x_min, x_max, y_min, y_max, ax):
+    """Parses constraints, computes feasible mask, and shades the region."""
+    constraints = []
+    lines = [l.strip() for l in const_str.split('\n') if l.strip()]
+    
+    for l in lines:
+        if "<=" in l:
+            lhs, rhs = l.split("<=")
+            # g(x,y) <= 0
+            expr = parse_expr(lhs) - parse_expr(rhs)
+            if expr is not None:
+                constraints.append(sp.lambdify((x_sym, y_sym), expr, 'numpy'))
+        elif ">=" in l:
+            lhs, rhs = l.split(">=")
+            # g(x,y) >= 0 -> equivalent to -g(x,y) <= 0
+            expr = parse_expr(rhs) - parse_expr(lhs)
+            if expr is not None:
+                constraints.append(sp.lambdify((x_sym, y_sym), expr, 'numpy'))
+    
+    feasible_mask = np.ones_like(X, dtype=bool)
+    if constraints:
+        # Check all constraints simultaneously
+        for g_func in constraints:
+            val = g_func(X, Y)
+            if np.isscalar(val):
+                if val > 0: feasible_mask[:] = False
+            else:
+                # Accumulate the mask for all constraints (intersection of feasible sets)
+                feasible_mask &= (val <= 0)
+
+        # Shade the feasible region (Green Area) 
+        ax.imshow(feasible_mask, extent=[x_min, x_max, y_min, y_max], origin='lower', 
+                  alpha=0.3, cmap='Greens', aspect='auto')
+        
+        # Plot boundary lines for constraints (Red Dashed Lines: where g(x,y) = 0)
+        for g_func in constraints:
+            g_val = g_func(X, Y)
+            if not np.isscalar(g_val):
+                ax.contour(X, Y, g_val, levels=[0], colors='red', linewidths=2, linestyles='dashed')
+
+# --- MAIN COMBINED FUNCTION FOR 2D PLOTTING ---
+def generate_2d_plot(func_str, const_str, x_min, x_max, y_min, y_max):
+    """Main function to create and display the 2D contour and constraint plot."""
+    x_sym, y_sym = sp.symbols('x y')
+    f = parse_expr(func_str)
+    
+    if f is None:
+        st.error("Invalid objective function. Check syntax or unsupported function/variable.")
+        return
+        
+    f_func = sp.lambdify((x_sym, y_sym), f, 'numpy')
+    
+    # Create Meshgrid
+    res = 100
+    x_vals = np.linspace(x_min, x_max, res)
+    y_vals = np.linspace(y_min, y_max, res)
+    X, Y = np.meshgrid(x_vals, y_vals)
+    
+    # Setup plot
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+
+    # 1. Plot Objective
+    plot_objective_contours(f_func, X, Y, ax, f)
+    
+    # 2. Plot Constraints
+    plot_constraints_region(const_str, x_sym, y_sym, X, Y, x_min, x_max, y_min, y_max, ax)
+    
+    # Final plot settings
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    
+    st.pyplot(fig)
+    st.caption("**Legend:** Green shaded area = Feasible Region ($C$). Red dashed lines = Constraint Boundaries.")
 
 # ==========================================
 # 0. Front page (WELCOME PAGE)
@@ -93,6 +278,27 @@ def latex_print(prefix, expr):
 if mode == "Front page":
     # Using your custom CSS class 'main-header' for the big title
     st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
+    
+    # --- IMAGE SECTION (CENTERED) ---
+    image_path = "background.jpg" 
+    
+    try:
+        # Use columns to center a fixed-width image
+        # Col ratio [1, 2, 1] means the center column (where the image is placed) 
+        # is centered horizontally in the page.
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.image(
+                image_path, 
+                caption='', 
+                width=600 # Set a specific width in pixels
+            )
+        
+    except FileNotFoundError:
+        st.error(f"Error: Image file not found at path: {image_path}. Please check the file name and location.")
+    # --- END IMAGE SECTION ---
+
+    # --- REST OF THE PAGE CONTENT (FLOWS NORMALLY BELOW THE IMAGE) ---
     
     # --- CHANGE 1: Version Tag ---
     st.markdown("""
@@ -119,15 +325,15 @@ if mode == "Front page":
         st.subheader("💻 Offline Access")
         st.warning(
             "**Coming Soon:** A complete guide on how to run this tool locally (offline) "
-            "will be available in the next update. This will allow you to use the solver "
+            "will be available soon. This will allow you to use the solver "
             "without an internet connection."
         )
     
 # ==========================================
-# 1. CONSTRAINED OPTIMIZATION (KKT)
+# 1. KKT Optimization
 # ==========================================
-if mode == "Constrained Optimization (KKT)":
-    st.markdown("<h1 class='main-header'>Constrained Optimization (KKT)</h1>", unsafe_allow_html=True)
+if mode == "KKT Optimization":
+    st.markdown("<h1 class='main-header'>KKT Optimization</h1>", unsafe_allow_html=True)
     
     col1, col2 = st.columns([1, 1])
     
@@ -217,9 +423,9 @@ if mode == "Constrained Optimization (KKT)":
                     """)
 
 # ==========================================
-# 2. SUBSET ANALYSIS (Properties)
+# 2. SUBSET ANALYSIS 
 # ==========================================
-elif mode == "Subset Analysis (Properties)":
+elif mode == "Subset Analysis":
     st.markdown("<h1 class='main-header'>Subset Analysis & Proof Generator</h1>", unsafe_allow_html=True)
     st.info("Analyze properties of a subset $C$ (Convexity, Closedness, Boundedness, Compactness) with curriculum proofs.")
 
@@ -372,110 +578,111 @@ elif mode == "Subset Analysis (Properties)":
 # ==========================================
 elif mode == "Plotting Tool":
     st.markdown("<h1 class='main-header'>Math Plotter & Sketcher</h1>", unsafe_allow_html=True)
-    st.info("Visualizes 2D functions, 3D surfaces, and constraint sets (feasible regions).")
+    st.info("Visualizes 1D functions, 2D contours, and 3D surfaces (Interactive).")
 
-    plot_type = st.radio("Plot Type:", ["2D Function & Constraints", "3D Surface"], horizontal=True)
+    plot_type = st.radio(
+        "Plot Type:", 
+        ["1D Function (f(x))", "2D Function & Constraints", "3D Surface (Interactive)"], 
+        horizontal=True
+    )
 
     col1, col2 = st.columns([1, 1])
     
+    # --- INPUT DEFINITION ---
     with col1:
         st.subheader("Setup")
-        func_str = st.text_input("Objective Function $f(x,y)$:", value="(x + y)**2 - x - y")
         
-        st.write("Constraints (for 2D shading, optional):")
-        const_str = st.text_area("Inequalities (one per line):", "x**2 + y**2 <= 4\nx + y >= 1")
+        # Determine default values based on selected plot type
+        if plot_type == "1D Function (f(x))":
+            func_default = "x**2 - 2*x + 1"
+            const_default = ""
+        elif plot_type == "2D Function & Constraints":
+            # Example 4.33 from the curriculum: Maximize x+y -> Minimize -x - y
+            func_default = "-x - y"
+            const_default = "2*x + y <= 1\nx + 2*y <= 1\nx >= 0\ny >= 0"
+        else: # 3D Surface
+            func_default = "(x + y)**2 - x - y"
+            const_default = "" 
+            
+        func_str = st.text_input("Objective Function $f(x, y, t, ...)$:", value=func_default)
+        
+        if plot_type == "2D Function & Constraints":
+            st.write("Constraints (for 2D shading):")
+            const_str = st.text_area("Inequalities (one per line):", const_default)
+        else:
+            const_str = ""
         
         st.subheader("Ranges")
         c1, c2 = st.columns(2)
-        x_min = c1.number_input("x min", value=-3.0)
-        x_max = c2.number_input("x max", value=3.0)
-        y_min = c1.number_input("y min", value=-3.0)
-        y_max = c2.number_input("y max", value=3.0)
+        x_min = c1.number_input("x min", value=-0.5 if plot_type == "2D Function & Constraints" else -3.0)
+        x_max = c2.number_input("x max", value=1.5 if plot_type == "2D Function & Constraints" else 3.0)
+        
+        if plot_type != "1D Function (f(x))":
+            y_min = c1.number_input("y min", value=-0.5 if plot_type == "2D Function & Constraints" else -3.0)
+            y_max = c2.number_input("y max", value=1.5 if plot_type == "2D Function & Constraints" else 3.0)
+        else:
+            y_min, y_max = 0, 0 
 
+    # --- PLOTTING LOGIC TRIGGER ---
     with col2:
         if st.button("Generate Plot", type="primary"):
             try:
-                x_sym, y_sym = sp.symbols('x y')
-                
-                # 1. Parse Objective
-                f = parse_expr(func_str)
-                f_func = sp.lambdify((x_sym, y_sym), f, 'numpy')
-                
-                # 2. Parse Constraints
-                constraints = []
-                lines = [l.strip() for l in const_str.split('\n') if l.strip()]
-                for l in lines:
-                    if "<=" in l:
-                        lhs, rhs = l.split("<=")
-                        expr = parse_expr(lhs) - parse_expr(rhs)
-                        constraints.append(sp.lambdify((x_sym, y_sym), expr, 'numpy'))
-                    elif ">=" in l:
-                        lhs, rhs = l.split(">=")
-                        # g >= 0 -> -g <= 0
-                        expr = parse_expr(rhs) - parse_expr(lhs)
-                        constraints.append(sp.lambdify((x_sym, y_sym), expr, 'numpy'))
-                
-                # 3. Create Meshgrid
-                res = 100
-                x_vals = np.linspace(x_min, x_max, res)
-                y_vals = np.linspace(y_min, y_max, res)
-                X, Y = np.meshgrid(x_vals, y_vals)
-                
-                # 4. Evaluate Objective
-                Z = f_func(X, Y)
-                
-                # 5. Evaluate Constraints Mask
-                feasible_mask = np.ones_like(X, dtype=bool)
-                for g_func in constraints:
-                    # g(x) <= 0 is feasible
-                    val = g_func(X, Y)
-                    if np.isscalar(val):
-                        if val > 0: feasible_mask[:] = False
+                if plot_type == "1D Function (f(x))":
+                    # --- 1D logic ---
+                    f = parse_expr(func_str)
+                    x_sym = sp.symbols('x')
+                    if x_sym not in f.free_symbols and len(f.free_symbols) > 0:
+                        st.error("Function must be in terms of 'x' for 1D plotting.")
                     else:
-                        feasible_mask &= (val <= 0)
-
-                # --- PLOTTING ---
-                fig = plt.figure(figsize=(10, 8))
-                
-                if plot_type == "2D Function & Constraints":
-                    ax = fig.add_subplot(111)
-                    
-                    # Plot Objective Contours
-                    contour = ax.contour(X, Y, Z, levels=20, cmap='viridis')
-                    ax.clabel(contour, inline=True, fontsize=8)
-                    
-                    # Plot Constraints (Feasible Region)
-                    if lines:
-                        # We mask the INFEASIBLE region with gray, leaving feasible white/colored
-                        ax.imshow(feasible_mask, extent=[x_min, x_max, y_min, y_max], origin='lower', 
-                                  alpha=0.3, cmap='Greens', aspect='auto')
+                        f_func = sp.lambdify(x_sym, f, 'numpy')
+                        x_vals = np.linspace(x_min, x_max, 500)
+                        y_vals = f_func(x_vals)
                         
-                        # Plot boundary lines for constraints
-                        for g_func in constraints:
-                            g_val = g_func(X, Y)
-                            if not np.isscalar(g_val):
-                                ax.contour(X, Y, g_val, levels=[0], colors='red', linewidths=2, linestyles='dashed')
-                    
-                    ax.set_xlabel('x')
-                    ax.set_ylabel('y')
-                    ax.set_title(f"Contour Plot of ${sp.latex(f)}$ with Feasible Region")
-                    
-                elif plot_type == "3D Surface":
-                    ax = fig.add_subplot(111, projection='3d')
-                    
-                    # Plot Surface
-                    surf = ax.plot_surface(X, Y, Z, cmap='viridis', alpha=0.8, edgecolor='none')
-                    fig.colorbar(surf, ax=ax, shrink=0.5, aspect=5)
-                    
-                    ax.set_xlabel('x')
-                    ax.set_ylabel('y')
-                    ax.set_zlabel('f(x,y)')
-                    ax.set_title(f"3D Surface of ${sp.latex(f)}$")
+                        fig, ax = plt.subplots(figsize=(10, 5))
+                        ax.plot(x_vals, y_vals, label=f"f(x) = ${sp.latex(f)}$")
+                        ax.set_xlabel('x')
+                        ax.set_ylabel('f(x)')
+                        ax.set_title(f"Plot of $f(x) = {sp.latex(f)}$")
+                        ax.axhline(0, color='gray', linewidth=0.5)
+                        ax.axvline(0, color='gray', linewidth=0.5)
+                        ax.grid(True, linestyle='--', alpha=0.6)
+                        ax.legend()
+                        st.pyplot(fig)
 
-                st.pyplot(fig)
-                
-                if lines and plot_type == "2D Function & Constraints":
-                    st.caption("**Legend:** Green shaded area = Feasible Region ($C$). Red dashed lines = Constraint Boundaries.")
+                elif plot_type == "2D Function & Constraints":
+                    generate_2d_plot(func_str, const_str, x_min, x_max, y_min, y_max)
+
+                elif plot_type == "3D Surface (Interactive)":
+                    # --- 3D logic ---
+                    x_sym, y_sym = sp.symbols('x y')
+                    f = parse_expr(func_str)
+                    if f is None:
+                        st.error("Invalid objective function.")
+                        st.stop()
+                    f_func = sp.lambdify((x_sym, y_sym), f, 'numpy')
+                    
+                    res = 100 
+                    x_vals = np.linspace(x_min, x_max, res)
+                    y_vals = np.linspace(y_min, y_max, res)
+                    X, Y = np.meshgrid(x_vals, y_vals)
+                    Z = f_func(X, Y)
+                    
+                    st.subheader("Interactive 3D Surface Plot")
+                    
+                    fig = go.Figure(data=[go.Surface(z=Z, x=X, y=Y, colorscale='Viridis')])
+
+                    fig.update_layout(
+                        scene=dict(
+                            xaxis_title='X Axis',
+                            yaxis_title='Y Axis',
+                            zaxis_title='f(x,y)',
+                            aspectratio=dict(x=1, y=1, z=0.7), 
+                            camera_eye=dict(x=1.2, y=1.2, z=0.6)
+                        ),
+                        margin=dict(l=0, r=0, b=0, t=0), 
+                        height=500
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e:
                 st.error(f"Plotting Error: {e}")
@@ -548,9 +755,9 @@ elif mode == "Hessian Matrix":
                 st.error(f"Solver error: {e}")
 
 # ==========================================
-# 5. MULTIVARIABLE NEWTON'S METHOD
+# 5. NEWTON'S METHOD
 # ==========================================
-elif mode == "Multivariable Newton's Method (Optimization)":
+elif mode == "Newton's Method (Optimization)":
     st.markdown("<h1 class='main-header'>Newton's Method for Optimization</h1>", unsafe_allow_html=True)
     st.info("Iteratively finds a critical point using the Hessian Inverse. (**Section 8.3, Eq 8.7**)")
     st.latex(r"v_{k+1} = v_k - [\nabla^2 F(v_k)]^{-1} \nabla F(v_k)")
@@ -1031,98 +1238,151 @@ elif mode == "Perceptron Algorithm":
                 st.error(f"Error: {e}")
 
 # ==========================================
-# 10. LINEAR ALGEBRA
+# 10. Matrix Operations (Final Revision - No Definiteness Check)
 # ==========================================
-elif mode == "Linear Algebra":
-    st.markdown("<h1 class='main-header'>Linear Algebra Solver</h1>", unsafe_allow_html=True)
+elif mode == "Matrix Operations":
+    st.markdown("<h1 class='main-header'>Matrix Operations </h1>", unsafe_allow_html=True)
     
-    op = st.selectbox("Operation", ["Determinant", "Inverse", "Matrix Multiplication"])
+    # Removed "Definiteness Check" from the options
+    op = st.selectbox("Operation", ["Determinant", "Inverse", "Transpose", "Matrix Multiplication"], index=0)
     
-    if op in ["Determinant", "Inverse"]:
-        st.write("Input Matrix (Python list of lists format, e.g., `[[1, 2], [3, 4]]`)")
-        mat_input = st.text_area("Matrix A:", "[[1, 2], [3, 4]]")
+    # --- 1-MATRIX OPERATIONS (Determinant, Inverse, Transpose) ---
+    if op in ["Determinant", "Inverse", "Transpose"]:
+        st.subheader(f"Matrix A Setup for {op}")
         
-        if st.button("Calculate"):
+        # Template selection is simplified
+        template_size = st.selectbox("Select Matrix Template Size:", ["2x2", "3x3 (IMO Jan 25 Q2)", "4x4"])
+        if template_size == "2x2":
+            default_text = "[[2, 1], [1, 2]]" # IMO Jan 25 Q2(a) example
+        elif "3x3" in template_size:
+            default_text = "[[1, 0, -1], [-2, 2, -1], [1, -1, 1]]" # Inverse example (IMO Jan 23 Q3(c))
+        elif template_size == "4x4":
+            default_text = "[[1, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 4]]"
+
+        st.write("Input Matrix (Python list of lists format, e.g., `[[1, 2], [3, 4]]`)")
+        mat_input = st.text_area("Matrix A:", value=default_text, height=150)
+        
+        if st.button("Calculate", type="primary"):
             try:
-                # Safe eval
-                mat_list = eval(mat_input)
+                # CRITICAL FIX: Define symbols for evaluation when checking symbolic inputs
+                a, b, c, x, y, z = sp.symbols('a b c x y z')
+                
+                # Safely evaluate the input string
+                mat_list = eval(mat_input, {'__builtins__': None}, locals())
                 A = sp.Matrix(mat_list)
                 
                 st.subheader("Input")
                 st.latex(f"A = {sp.latex(A)}")
                 
                 st.subheader("Result")
+                
+                # Core Operations
                 if op == "Determinant":
                     det = A.det()
                     st.latex(f"\\det(A) = {sp.latex(det)}")
+                    
                 elif op == "Inverse":
-                    if A.det() == 0:
+                    if A.rows != A.cols:
+                        st.error("Matrix must be square to calculate the inverse.")
+                    elif A.det() == 0:
                         st.error("Matrix is singular (Determinant is 0), cannot invert.")
                     else:
                         inv = A.inv()
                         st.latex(f"A^{{-1}} = {sp.latex(inv)}")
+                        
+                elif op == "Transpose":
+                    trans = A.transpose()
+                    st.latex(f"A^{{T}} = {sp.latex(trans)}")
+                        
             except Exception as e:
-                st.error(f"Error parsing matrix: {e}")
+                # Catches errors related to malformed matrix input
+                st.error(f"Error parsing matrix: Check that every row has the same number of columns. Original error: {e}")
 
+    # --- MATRIX MULTIPLICATION ---
     elif op == "Matrix Multiplication":
+        st.subheader("Matrix A (m x n) $\\cdot$ Matrix B (n x r)")
+        st.caption("Reference: **Section 3.3** (Matrix Multiplication)")
+        
         col1, col2 = st.columns(2)
         with col1:
-            mat_a_str = st.text_area("Matrix A:", "[[1, 2], [3, 4]]")
+            mat_a_str = st.text_area("Matrix A:", "[[1, 2], [3, 4]]", height=150)
         with col2:
-            mat_b_str = st.text_area("Matrix B:", "[[1, 0], [0, 1]]")
+            mat_b_str = st.text_area("Matrix B:", "[[10], [20]]", height=150)
             
-        if st.button("Multiply A * B"):
+        if st.button("Multiply A $\\cdot$ B", type="primary"):
             try:
                 A = sp.Matrix(eval(mat_a_str))
                 B = sp.Matrix(eval(mat_b_str))
+                
+                if A.cols != B.rows:
+                    st.error(f"Incompatible matrices: Matrix A has {A.cols} columns, but Matrix B has {B.rows} rows. A.cols must equal B.rows.")
+                    st.stop()
+                    
                 res = A * B
+                st.subheader("Result")
                 st.latex(f"{sp.latex(A)} \\cdot {sp.latex(B)} = {sp.latex(res)}")
             except Exception as e:
                 st.error(f"Error: {e}")
 
 # ==========================================
-# 11. CALCULUS
+# 11. CALCULUS (Diff/Int)
 # ==========================================
 elif mode == "Calculus (Diff/Int)":
     st.markdown("<h1 class='main-header'>Calculus Assistant</h1>", unsafe_allow_html=True)
     
-    calc_mode = st.radio("Operation", ["Derivative", "Integral", "Limit"])
+    calc_mode = st.radio("Operation", ["Derivative", "Limit"], horizontal=True)
     
-    expr_input = st.text_input("Expression (in terms of x):", "x**2 * sin(x)")
+    expr_input = st.text_input(
+        "Expression (in terms of x):", 
+        value="x**2 * sin(x)"
+    )
+    
     expr = parse_expr(expr_input)
     x = sp.symbols('x')
     
     if calc_mode == "Derivative":
-        order = st.slider("Order of Derivative", 1, 4, 1)
-        if st.button("Differentiate"):
-            res = sp.diff(expr, x, order)
-            st.markdown("### Result")
-            st.latex(f"\\frac{{d^{order}}}{{dx^{order}}} ({sp.latex(expr)}) = {sp.latex(res)}")
-            
-    elif calc_mode == "Integral":
-        col1, col2 = st.columns(2)
-        with col1:
-            is_def = st.checkbox("Definite Integral?")
+        # 📝 CHANGE: Switched from st.selectbox back to st.text_input
+        order_str = st.text_input(
+            "Order of Derivative (Enter an integer):", 
+            value="1" 
+        )
         
-        if is_def:
-            with col2:
-                lower = st.text_input("Lower Bound:", "0")
-                upper = st.text_input("Upper Bound:", "pi")
-            if st.button("Integrate"):
-                res = sp.integrate(expr, (x, parse_expr(lower), parse_expr(upper)))
+        if st.button("Differentiate"):
+            if expr is None:
+                st.error("Invalid expression. Please check your syntax.")
+                st.stop()
+            
+            try:
+                # Validate input and convert to integer
+                order = int(order_str)
+                if order < 1:
+                    st.error("Order must be a positive integer.")
+                    st.stop()
+                    
+                res = sp.diff(expr, x, order)
                 st.markdown("### Result")
-                st.latex(f"\\int_{{{sp.latex(parse_expr(lower))}}}^{{{sp.latex(parse_expr(upper))}}} {sp.latex(expr)} \\, dx = {sp.latex(res)}")
-        else:
-            if st.button("Integrate"):
-                res = sp.integrate(expr, x)
-                st.markdown("### Result")
-                st.latex(f"\\int {sp.latex(expr)} \\, dx = {sp.latex(res)} + C")
-
+                st.latex(f"\\frac{{d^{order}}}{{dx^{order}}} ({sp.latex(expr)}) = {sp.latex(res)}")
+                
+            except ValueError:
+                st.error("Invalid input for order. Please enter an integer.")
+                st.stop()
+            except Exception as e:
+                st.error(f"Error during differentiation: {e}")
+            
     elif calc_mode == "Limit":
         target = st.text_input("Limit as x approaches:", "0")
         if st.button("Calculate Limit"):
-            res = sp.limit(expr, x, parse_expr(target))
-            st.latex(f"\\lim_{{x \\to {target}}} ({sp.latex(expr)}) = {sp.latex(res)}")
+            if expr is None:
+                st.error("Invalid expression. Please check your syntax.")
+                st.stop()
+            else:
+                try:
+                    target_expr = parse_expr(target)
+                    res = sp.limit(expr, x, target_expr)
+                    st.markdown("### Result")
+                    st.latex(f"\\lim_{{x \\to {sp.latex(target_expr)}}} ({sp.latex(expr)}) = {sp.latex(res)}")
+                except Exception as e:
+                    st.error(f"Error calculating limit: {e}")
 
 # ==========================================
 # 12. EQUATION SOLVER
