@@ -49,7 +49,7 @@ st.sidebar.title("🔧 Solver Toolkit")
 mode = st.sidebar.radio(
     "Choose Calculation Type:",
     [
-        "Forside",
+        "Front page",
         "Constrained Optimization (KKT)", 
         "Subset Analysis (Properties)",
         "Plotting Tool",
@@ -88,21 +88,21 @@ def latex_print(prefix, expr):
     st.latex(f"{prefix} {sp.latex(expr)}")
 
 # ==========================================
-# 0. FORSIDE (WELCOME PAGE)
+# 0. Front page (WELCOME PAGE)
 # ==========================================
-if mode == "Forside":
+if mode == "Front page":
     # Using your custom CSS class 'main-header' for the big title
-    st.markdown("<h1 class='main-header'>Velkommen til Kenan's IMO lommeregner</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
     
     # The small note centered below
     st.markdown("""
     <div style='text-align: center; color: gray; margin-top: -20px; font-style: italic;'>
-        Lavet af min gode ven
+        Made by my good friend
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.info("👈 **Vælg et værktøj i menuen til venstre for at komme i gang.**")
+    st.info("👈 **Choose a tool from the menu on the left to get started.**")
     
 # ==========================================
 # 1. CONSTRAINED OPTIMIZATION (KKT)
