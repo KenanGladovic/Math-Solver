@@ -361,7 +361,7 @@ def generate_2d_plot(func_str, const_str, x_min, x_max, y_min, y_max):
 if mode == "Front page":
     # Using your custom CSS class 'main-header' for the big title
     st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
-    
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     # --- IMAGE SECTION (CENTERED) ---
     image_path = os.path.join(current_dir, 'background.jpg')
     
