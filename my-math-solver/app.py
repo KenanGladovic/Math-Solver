@@ -45,7 +45,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
-st.sidebar.title("🔧 Solver Toolkit")
+st.sidebar.title("🔧 Library")
 mode = st.sidebar.radio(
     "Choose Calculation Type:",
     [
@@ -94,15 +94,34 @@ if mode == "Front page":
     # Using your custom CSS class 'main-header' for the big title
     st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
     
+    # --- CHANGE 1: Version Tag ---
+    st.markdown("""
+    <div style='text-align: center; margin-bottom: 15px;'>
+        <span style='background-color: #2196F3; color: white; padding: 4px 8px; border-radius: 15px; font-size: 0.9rem; font-weight: bold;'>
+            v1.0
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # The small note centered below
     st.markdown("""
-    <div style='text-align: center; color: gray; margin-top: -20px; font-style: italic;'>
+    <div style='text-align: center; color: gray; margin-top: 10px; font-style: italic;'>
         Made by my good friend
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.info("👈 **Choose a tool from the menu on the left to get started.**")
+
+    # --- CHANGE 2: Offline Guide Section ---
+    st.markdown("<br>", unsafe_allow_html=True) # spacer
+    with st.container():
+        st.subheader("💻 Offline Access")
+        st.warning(
+            "**Coming Soon:** A complete guide on how to run this tool locally (offline) "
+            "will be available in the next update. This will allow you to use the solver "
+            "without an internet connection."
+        )
     
 # ==========================================
 # 1. CONSTRAINED OPTIMIZATION (KKT)
