@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import sympy as sp
 import numpy as np
 import pandas as pd
@@ -362,7 +363,7 @@ if mode == "Front page":
     st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
     
     # --- IMAGE SECTION (CENTERED) ---
-    image_path = os.path.join(current_dir, 'background.jpg') 
+    image_path = os.path.join(current_dir, 'background.jpg')
     
     try:
         # Use columns to center a fixed-width image
