@@ -51,3 +51,18 @@ Open a terminal (Command Prompt) inside this folder and run:
 ```bash
 pip install -r requirements.txt
 (If pip is not recognized, try py -m pip install -r requirements.txt).
+```
+
+## 🛠️ Run program locally
+
+### 1. Download
+Create a folder and insert:
+- app.py
+- background.jpg
+- requirements.txt
+- utils.py
+- pages (complete folder)
+- Run_Calculator.bat
+
+### 2. Run
+Open Run_Calculator
