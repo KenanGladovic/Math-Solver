@@ -27,22 +27,13 @@ except:
 st.markdown("""
 <div style='text-align: center; margin-bottom: 15px;'>
     <span style='background-color: #2196F3; color: white; padding: 4px 8px; border-radius: 15px; font-size: 0.9rem; font-weight: bold;'>
-        v1.0
+        v2.0
     </span>
 </div>
 <div style='text-align: center; color: gray; margin-top: 10px; font-style: italic;'>
     Made by my good friend
 </div>
 """, unsafe_allow_html=True)
-
-# 8. Offline Guide Section
-st.markdown("<br>", unsafe_allow_html=True)
-with st.container():
-    st.subheader("💻 Offline Access")
-    st.warning(
-        "**Offline Mode Active:** You are running this tool locally using Streamlit. "
-        "No internet connection is required for calculations."
-    )
 
 # --- RANDOM FUNNY TIP SECTION ---
 quotes = [
