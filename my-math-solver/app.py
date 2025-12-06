@@ -35,15 +35,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 8. Offline Guide Section
-st.markdown("<br>", unsafe_allow_html=True)
-with st.container():
-    st.subheader("💻 Offline Access")
-    st.warning(
-        "**Offline Mode Active:** You are running this tool locally using Streamlit. "
-        "No internet connection is required for calculations."
-    )
-
 # --- RANDOM FUNNY TIP SECTION ---
 quotes = [
     "💡 **Tip:** Keep your friends close, and your Lagrange multipliers non-negative.",
