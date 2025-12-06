@@ -33,7 +33,3 @@ Open a terminal (Command Prompt) in this folder and run:
 ```bash
 pip install streamlit sympy numpy pandas matplotlib scipy plotly
 
-
-### How to run manually
-Run this command in a terminal:
-python -m streamlit run Home.py
