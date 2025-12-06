@@ -103,7 +103,7 @@ mode = st.sidebar.radio(
         "Newton's Method (Optimization)",
         "Symmetric Diagonalization (B^T A B)",
         "Fourier-Motzkin Elimination",
-        "Least Squares Fitting (Normal Equations)",
+        "Least Squares Method",
         "Perceptron Algorithm",
         "Matrix Operations", 
         "Calculus (Diff/Int)", 
