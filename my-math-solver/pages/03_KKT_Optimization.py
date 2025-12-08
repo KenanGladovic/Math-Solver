@@ -9,14 +9,13 @@ utils.setup_page()
 
 st.markdown("<h1 class='main-header'>KKT Computation</h1>", unsafe_allow_html=True)
 
-# 2. Curriculum Context (Strictly adhering to Chapter 9)
+# 2. Curriculum Context
 with st.expander("📘 Curriculum References (Chapter 9)", expanded=False):
     st.markdown("""
     * **Definition 9.24 (KKT Conditions):** The necessary conditions for $x^*$ to be an optimal solution.
     * **Definition 9.33 (Strict Feasibility):** There exists a point $z_0$ where all $g_i(z_0) < 0$.
     * **Theorem 9.34:** If the problem is convex and **strictly feasible**, KKT conditions are sufficient for optimality.
     * **Section 9.5.1 (Strategy):** We solve by testing combinations of $\lambda_i = 0$ vs $\lambda_i > 0$. 
-        * If $\lambda_i > 0$, then $g_i(x) = 0$.
     """)
 
 # 3. Unified Input Section
@@ -30,9 +29,7 @@ with col1:
     default_const = "x**2 + y**2 <= 4\n1 - x - y <= 0"
     constraints_input = utils.p_text_area("Constraints $g_i(x) \le 0$ (one per line):", "kkt_master_const", default_const, height=150)
     
-    st.info("💡 **Tip:** Enter constraints **exactly** as they appear in the exam (e.g. `x + y >= 1`). The tool automatically flips them to the standard mathematical form ($g(x) \le 0$) for the calculation.")
-    
-                                                                                                                                                                             
+    st.info("💡 **Tip:** Enter constraints **exactly** as they appear in the exam. The tool automatically converts them to $g(x) \le 0$.")
 
 with col2:
     st.subheader("2. Analysis Mode")
@@ -53,7 +50,6 @@ with col2:
                     parsed_constraints.append(g)
                 elif ">=" in c_str:
                     lhs, rhs = c_str.split(">=")
-                    # Convert g >= 0 to -g <= 0
                     g = utils.parse_expr(rhs) - utils.parse_expr(lhs)
                     parsed_constraints.append(g)
                 else:
@@ -66,18 +62,17 @@ with col2:
         valid_input = False
 
     # Tabs
-    tab_sym, tab_num = st.tabs(["📝 Generate Conditions (Symbolic)", "✅ Verify Candidate (Numerical)"])
+    tab_sym, tab_num = st.tabs(["📝 Generate Conditions (Symbolic)", "✅ Verify Candidate (Detailed Report)"])
 
     # ============================================================
     # TAB 1: SYMBOLIC GENERATION
     # ============================================================
     with tab_sym:
-        st.write("Generates the formal LaTeX equations for your exam paper.")
+        st.write("Generates the equations from **(9.24)** in your curriculum.")
         
         if st.button("Generate KKT Conditions", type="primary"):
             if valid_input and f_expr:
                 
-                # --- A. Problem Preview ---
                 st.markdown("### 1. Problem Statement")
                 st.write("Minimize:")
                 st.latex(f"f = {sp.latex(f_expr)}")
@@ -86,37 +81,35 @@ with col2:
                     st.latex(f"{sp.latex(g)} \\le 0")
                 st.markdown("---")
 
-                # --- B. The Conditions ---
-                st.markdown("### 2. The KKT Conditions (Def 9.24)")
+                st.markdown("### 2. The KKT Conditions (Formula 9.24)")
                 
-                # 1. Primal
-                st.markdown("**I. Primal Feasibility** ($g_i(x) \le 0$)")
-                for i, g in enumerate(parsed_constraints):
-                    st.latex(f"g_{{{i+1}}}: {sp.latex(g)} \le 0")
-                
-                # 2. Dual
-                st.markdown("**II. Dual Feasibility** ($\lambda_i \ge 0$)")
                 lambdas = [sp.symbols(f'lambda_{i+1}') for i in range(len(parsed_constraints))]
+                
+                st.markdown("**1. Dual Feasibility** ($\lambda_i \ge 0$)")
                 if lambdas:
                     lam_tex = ", ".join([sp.latex(l) for l in lambdas])
                     st.latex(f"{lam_tex} \ge 0")
                 else:
                     st.write("No inequality constraints.")
 
-                # 3. Complementary Slackness
-                st.markdown("**III. Complementary Slackness** ($\lambda_i g_i(x) = 0$)")
+                st.markdown("**2. Primal Feasibility** ($g_i(v_0) \le 0$)")
+                for i, g in enumerate(parsed_constraints):
+                    st.latex(f"{sp.latex(g)} \le 0")
+
+                st.markdown("**3. Complementary Slackness** ($\lambda_i g_i(v_0) = 0$)")
                 for i, (lam, g) in enumerate(zip(lambdas, parsed_constraints)):
-                    st.latex(f"\\lambda_{{{i+1}}} \\cdot ({sp.latex(g)}) = 0")
+                    st.latex(f"\\lambda_{{{i+1}}} ({sp.latex(g)}) = 0")
                 
-                # 4. Stationarity
-                st.markdown("**IV. Stationarity** ($\nabla f + \sum \lambda_i \\nabla g_i = 0$)")
-                st.write("The gradient of the Lagrangian must be zero:")
+                st.markdown("**4. Stationarity** ($\\nabla f(v_0) + \sum \lambda_i \\nabla g_i(v_0) = 0$)")
                 
-                L = f_expr + sum(lam * g for lam, g in zip(lambdas, parsed_constraints))
+                L = f_expr
+                for lam, g in zip(lambdas, parsed_constraints):
+                    L += lam * g
                 
                 for var in vars_sym:
-                    derivative = sp.diff(L, var)
-                    st.latex(f"\\frac{{\partial L}}{{\partial {var.name}}} = {sp.latex(derivative)} = 0")
+                    eq = sp.diff(L, var)
+                    st.latex(f"{sp.latex(eq)} = 0 \\quad \\text{{(w.r.t. }} {var.name} \\text{{)}}")
+
             else:
                 st.error("Please fix input errors above first.")
 
@@ -124,101 +117,128 @@ with col2:
     # TAB 2: NUMERICAL VERIFICATION
     # ============================================================
     with tab_num:
-        st.write("Checks if a specific point (e.g., from an exam question) is optimal.")
+        st.write("Calculates required multipliers and tests the candidate point against all 4 conditions.")
         candidate_str = utils.p_text_input("Candidate Point (e.g. 2, 0):", "kkt_master_cand", "2, 0")
         
-        if st.button("Check Optimality", type="primary"):
+        if st.button("Verify Candidate", type="primary"):
             if valid_input and f_expr:
                 try:
-                    # --- A. Problem Preview ---
-                    st.markdown("### 1. Problem Context")
-                    st.latex(f"\\min f = {sp.latex(f_expr)}")
-                    
-                    # --- B. Verification Logic ---
                     vals = [float(x.strip()) for x in candidate_str.split(',')]
                     if len(vals) != len(vars_sym):
                         st.error(f"Dimension mismatch. Expected {len(vars_sym)} variables ({vars_sym}), got {len(vals)}.")
                     else:
                         point_map = dict(zip(vars_sym, vals))
+                        st.markdown(f"### Analysis of Point $v_0 = {tuple(vals)}$")
+                        st.write("We will now insert this point into the KKT conditions.")
+                        st.markdown("---")
+
+                        # --- STEP 0: CALCULATE GRADIENTS ---
+                        grad_f_vals = [float(sp.diff(f_expr, v).subs(point_map)) for v in vars_sym]
                         
-                        st.markdown("### 2. Analysis of Point " + str(tuple(vals)))
+                        grad_g_vals = []
+                        g_vals = []
+                        for g in parsed_constraints:
+                            g_val = float(g.subs(point_map))
+                            g_vals.append(g_val)
+                            grad_g_vals.append([float(sp.diff(g, v).subs(point_map)) for v in vars_sym])
+
+                        # --- STEP 1: SOLVE FOR MULTIPLIERS (LAMBDA) ---
+                        # We try to satisfy Stationarity (Cond 4) first to find candidate lambdas.
+                        # Equation: A^T * lambda = -grad_f
+                        # We only consider 'active' constraints (g approx 0) for the solve, 
+                        # but we verify against all.
                         
-                        # Step 1: Constraints
-                        feasible = True
-                        equality_indices = [] # Instead of "Active"
-                        st.markdown("**Step 1: Primal Feasibility ($g_i \le 0$)**")
+                        # Identify active constraints for the linear solver
+                        active_indices = [i for i, val in enumerate(g_vals) if abs(val) < 1e-4]
                         
-                        for i, g in enumerate(parsed_constraints):
-                            val = float(g.subs(point_map))
-                            if val > 1e-5:
-                                st.error(f"❌ Constraint {i+1} Violated: {sp.latex(g)} = {val:.4f} > 0")
-                                feasible = False
-                            elif abs(val) < 1e-5:
-                                st.info(f"⚠️ Constraint {i+1} is equality: {sp.latex(g)} = 0. ($\lambda_{{{i+1}}}$ can be $>0$)")
-                                equality_indices.append(i)
-                            else:
-                                st.success(f"✅ Constraint {i+1} is strict inequality: {sp.latex(g)} = {val:.4f} < 0")
-                                st.caption(f"By Complementary Slackness, $\lambda_{{{i+1}}}$ must be **0**.")
-                        
-                        if not feasible:
-                            st.error("Conclusion: Point is **NOT Primal Feasible**. Cannot be optimal.")
+                        # Build matrix A (columns are gradients of active constraints)
+                        if active_indices:
+                            A_active = np.array([grad_g_vals[i] for i in active_indices]).T
+                            b_vec = -np.array(grad_f_vals)
+                            
+                            # Solve least squares
+                            lam_active, residuals, _, _ = np.linalg.lstsq(A_active, b_vec, rcond=None)
                         else:
-                            # Step 2: Stationarity
-                            st.markdown("**Step 2: Stationarity & Dual Feasibility**")
-                            st.caption("We solve for the multipliers $\lambda$ in the stationarity equation.")
-                            
-                            grad_f = [float(sp.diff(f_expr, v).subs(point_map)) for v in vars_sym]
-                            
-                            # We only solve for lambdas where g_i = 0. The others are FORCED to 0.
-                            grad_gs_eq = []
-                            for idx in equality_indices:
-                                g = parsed_constraints[idx]
-                                grad_g = [float(sp.diff(g, v).subs(point_map)) for v in vars_sym]
-                                grad_gs_eq.append(grad_g)
-                            
-                            # Linear System: A.T * lambda = -grad_f
-                            if not equality_indices:
-                                norm_grad = np.linalg.norm(grad_f)
-                                if norm_grad < 1e-5:
-                                    st.success("✅ **Stationarity Holds** (Unconstrained local min, all $\lambda=0$).")
-                                    st.balloons()
-                                else:
-                                    st.error(f"❌ **Stationarity Fails**. Gradient is not zero: {grad_f}")
+                            lam_active = []
+
+                        # Construct full lambda vector
+                        lambdas_calc = [0.0] * len(parsed_constraints)
+                        for i, idx in enumerate(active_indices):
+                            lambdas_calc[idx] = lam_active[i]
+
+                        st.info(f"**Calculated Multipliers:** We solve the Stationarity equation to find the required $\lambda$ values:\n\n" + 
+                                ", ".join([f"$\lambda_{i+1} = {lam:.4f}$" for i, lam in enumerate(lambdas_calc)]))
+
+                        st.markdown("---")
+
+                        # --- STEP 2: VERIFY ALL CONDITIONS ---
+                        
+                        # 1. Dual Feasibility
+                        st.markdown("#### 1. Dual Feasibility Check ($\lambda_i \ge 0$)")
+                        dual_pass = True
+                        for i, lam in enumerate(lambdas_calc):
+                            if lam < -1e-5:
+                                st.error(f"❌ $\lambda_{i+1} = {lam:.4f} < 0$. Condition Failed.")
+                                dual_pass = False
                             else:
-                                A = np.array(grad_gs_eq).T
-                                b = -np.array(grad_f)
-                                
-                                lambdas_sol, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
-                                reconstructed = A @ lambdas_sol
-                                error = np.linalg.norm(reconstructed - b)
-                                
-                                if error > 1e-5:
-                                    st.error(f"❌ **Stationarity Fails**. Gradients of constraints cannot cancel $\\nabla f$. Residual: {error:.4f}")
-                                else:
-                                    st.success("✅ **Stationarity Holds**.")
-                                    
-                                    # Step 3: Dual Feasibility
-                                    dual_feasible = True
-                                    st.write("Checking Dual Feasibility ($\lambda_i \ge 0$):")
-                                    
-                                    # Map solution back to full list
-                                    full_lambdas = [0.0] * len(parsed_constraints)
-                                    for local_idx, true_idx in enumerate(equality_indices):
-                                        lam_val = lambdas_sol[local_idx]
-                                        full_lambdas[true_idx] = lam_val
-                                        
-                                        if lam_val < -1e-5:
-                                            st.error(f"❌ $\lambda_{{{true_idx+1}}} = {lam_val:.4f}$ (Violation: Must be $\ge 0$)")
-                                            dual_feasible = False
-                                        else:
-                                            st.success(f"✅ $\lambda_{{{true_idx+1}}} = {lam_val:.4f}$")
-                                    
-                                    if dual_feasible:
-                                        st.balloons()
-                                        st.success("**VERDICT: Point satisfies ALL KKT conditions.**")
-                                        st.info("If the problem is Convex and Strictly Feasible, this is a Global Minimum (Theorem 9.34).")
-                                    else:
-                                        st.warning("**VERDICT: Point is NOT optimal (Violates Dual Feasibility).**")
+                                st.write(f"✅ $\lambda_{i+1} = {lam:.4f} \ge 0$.")
+                        
+                        if dual_pass: st.success("result: Condition Satisfied.")
+                        else: st.warning("result: Condition Failed.")
+
+                        # 2. Primal Feasibility
+                        st.markdown("#### 2. Primal Feasibility Check ($g_i(v_0) \le 0$)")
+                        primal_pass = True
+                        for i, val in enumerate(g_vals):
+                            if val > 1e-5:
+                                st.error(f"❌ $g_{i+1}(v_0) = {val:.4f} > 0$. Constraint Violated.")
+                                primal_pass = False
+                            else:
+                                st.write(f"✅ $g_{i+1}(v_0) = {val:.4f} \le 0$.")
+                        
+                        if primal_pass: st.success("result: Condition Satisfied.")
+                        else: st.warning("result: Condition Failed.")
+
+                        # 3. Complementary Slackness
+                        st.markdown("#### 3. Complementary Slackness Check ($\lambda_i g_i(v_0) = 0$)")
+                        slack_pass = True
+                        for i, (lam, val) in enumerate(zip(lambdas_calc, g_vals)):
+                            product = lam * val
+                            if abs(product) > 1e-4:
+                                st.error(f"❌ $\lambda_{i+1} \cdot g_{i+1} = {lam:.4f} \cdot {val:.4f} = {product:.4f} \\ne 0$. Failed.")
+                                slack_pass = False
+                            else:
+                                st.write(f"✅ $\lambda_{i+1} \cdot g_{i+1} \\approx 0$.")
+                        
+                        if slack_pass: st.success("result: Condition Satisfied.")
+                        else: st.warning("result: Condition Failed.")
+
+                        # 4. Stationarity
+                        st.markdown("#### 4. Stationarity Check ($\nabla L = 0$)")
+                        # Recalculate gradient sum
+                        grad_L = np.array(grad_f_vals)
+                        for i, lam in enumerate(lambdas_calc):
+                            grad_L += lam * np.array(grad_g_vals[i])
+                        
+                        residual_norm = np.linalg.norm(grad_L)
+                        
+                        st.write(f"Sum of gradients: $\\nabla f + \sum \lambda_i \\nabla g_i = {np.round(grad_L, 4)}$")
+                        if residual_norm < 1e-4:
+                            st.success(f"result: Condition Satisfied (Residual: {residual_norm:.1e}).")
+                            stat_pass = True
+                        else:
+                            st.error(f"result: Condition Failed. The gradients do not cancel out (Residual: {residual_norm:.4f}).")
+                            stat_pass = False
+
+                        # --- STEP 3: FINAL VERDICT ---
+                        st.markdown("---")
+                        st.subheader("Final Verdict")
+                        if dual_pass and primal_pass and slack_pass and stat_pass:
+                            st.balloons()
+                            st.success(f"**OPTIMAL.** The point {tuple(vals)} satisfies all KKT conditions.")
+                            st.markdown("Since the problem is Convex (check this!) and Strictly Feasible, this is a **Global Minimum**.")
+                        else:
+                            st.error(f"**NOT OPTIMAL.** The point {tuple(vals)} fails one or more KKT conditions.")
 
                 except Exception as e:
                     st.error(f"Error: {e}")

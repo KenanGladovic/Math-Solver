@@ -1,170 +1,273 @@
 import streamlit as st
 import sympy as sp
 import utils
+
 st.set_page_config(layout="wide")
 utils.setup_page()
+
 st.markdown("<h1 class='main-header'>Fourier-Motzkin Elimination</h1>", unsafe_allow_html=True)
 
-st.info("""
-**Curriculum Reference: Section 4.5**
-This method solves systems of linear inequalities by projecting the feasible region onto a lower-dimensional space.
-It is the primary method taught for solving Linear Optimization problems in **Chapter 4** (e.g., the Vitamin Pill Problem).
-""")
+# --- Curriculum Context ---
+with st.expander("📘 Theory & Curriculum Reference (Section 4.5)", expanded=False):
+    st.markdown("""
+    **Concept:** Fourier-Motzkin elimination is a method for solving systems of linear inequalities by projecting the feasible region onto a lower-dimensional space.
+    
+    **Optimization (Curriculum p. 109):** To minimize/maximize a function $f(x,y)$, we introduce a new variable $z$ and the constraint $z = f(x,y)$. 
+    We then eliminate all variables except $z$ to find its bounds: $z_{min} \le z \le z_{max}$.
+    """)
 
-col1, col2 = st.columns([1, 1])
+# --- PRESET DEFINITIONS ---
+presets = {
+    "Custom": {
+        "mode": "System Analysis",
+        "const": "",
+        "obj": ""
+    },
+    "Curriculum 4.5 (System)": {
+        "mode": "System Analysis",
+        "const": "2*x + y <= 6\nx + 2*y <= 6\n-x - 2*y <= -2\n-x <= 0\n-y <= 0\nz - x - y <= 0\n-z + x + y <= 0",
+        "obj": ""
+    },
+    "IMO Jan 23 Q1 (Optimization)": {
+        "mode": "Optimization",
+        "const": "x + y <= 10\n2*x + y <= 15\n-x <= 0\n-y <= 0",
+        "obj": "3*x + 2*y"
+    },
+    "IMO Jan 25 Q3 (Feasibility)": {
+        "mode": "System Analysis",
+        "const": "a + b + c <= -0.001\n-(a + 3*b + c) <= -0.001\n-(2*a + b + c) <= -0.001",
+        "obj": ""
+    }
+}
 
-with col1:
-    st.subheader("1. System Setup")
-    st.markdown("Enter inequalities (one per line). Use `<=`, `>=`, `<` or `>`.")
-    
-    # Default Example: (4.11) from the text, solving for z
-    default_ineqs = "2*x + y <= 6\nx + 2*y <= 6\nx + 2*y >= 2\nx >= 0\ny >= 0\nz - x - y <= 0\n-z + x + y <= 0"
-    ineq_text = utils.p_text_area("System of Inequalities:", "fm_ineqs", default_ineqs, height=200)
+# --- CALLBACK TO LOAD PRESETS ---
+def load_preset():
+    sel = st.session_state.preset_selector
+    data = presets[sel]
+    st.session_state.fm_mode = data["mode"]
+    st.session_state.fm_const = data["const"]
+    st.session_state.fm_obj = data["obj"]
+    # Update widget keys
+    st.session_state["w_fm_const"] = data["const"]
+    st.session_state["w_fm_obj"] = data["obj"]
 
-with col2:
-    st.subheader("2. Solver Settings")
+# Initialize State
+if "fm_mode" not in st.session_state: st.session_state.fm_mode = "System Analysis"
+if "fm_const" not in st.session_state: st.session_state.fm_const = ""
+if "fm_obj" not in st.session_state: st.session_state.fm_obj = ""
+
+# --- 1. SETUP & INPUTS ---
+col_setup, col_ex = st.columns([2, 1])
+
+with col_ex:
+    st.subheader("Presets")
+    st.selectbox(
+        "Load Example:", 
+        list(presets.keys()), 
+        key="preset_selector", 
+        on_change=load_preset
+    )
     
-    # Auto-detect variables from input
-    dummy_expr = utils.parse_expr("0") 
-    detected_vars = set()
-    for line in ineq_text.split('\n'):
-        if line.strip():
-            for part in line.replace('<',' ').replace('>',' ').replace('=',' ').split():
-                try:
-                    sym = utils.parse_expr(part)
-                    if sym: detected_vars.update(sym.free_symbols)
-                except: pass
-    
-    sorted_vars = sorted([s.name for s in detected_vars])
-    
-    if not sorted_vars:
-        st.warning("No variables detected yet.")
-        target_var = None
-    else:
-        st.markdown(f"**Detected Variables:** `{', '.join(sorted_vars)}`")
-        target_var = st.selectbox(
-            "Which variable do you want to solve for (keep)?", 
-            sorted_vars, 
-            index=len(sorted_vars)-1
+    if st.session_state.fm_const.startswith("2*x"):
+        st.info("**Curriculum Ex 4.11:** Solves for $z$ bounds.")
+    elif "3*x" in st.session_state.fm_obj:
+        st.info("**IMO Jan 23:** Maximizing linear function.")
+
+with col_setup:
+    st.subheader("1. Problem Configuration")
+    mode = st.radio(
+        "Problem Type:", 
+        ["System Analysis", "Optimization"], 
+        index=0 if st.session_state.fm_mode == "System Analysis" else 1,
+        horizontal=True
+    )
+
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        constraints_txt = utils.p_text_area(
+            "Constraints (one per line):", 
+            "fm_const", 
+            st.session_state.fm_const, 
+            height=200
         )
-        st.caption(f"The tool will automatically eliminate all other variables to find bounds for **${target_var}$**.")
+    
+    with c2:
+        if mode == "Optimization":
+            obj_func = utils.p_text_input("Objective Function $f(x, ...)$:", "fm_obj", st.session_state.fm_obj)
+            opt_dir = st.radio("Goal:", ["Maximize", "Minimize"], horizontal=True)
+            st.info("Introduces $z = f(x)$ and eliminates others.")
+            target_var_name = "z"
+        else:
+            st.write("**Target Variable:**")
+            st.caption("Variable to solve for (keep). Auto-detected on run.")
+            target_var_name = "Manual Select"
 
-if st.button("Run Fourier-Motzkin", type="primary") and target_var:
+# --- 2. SOLVER LOGIC ---
+
+if st.button("Run Fourier-Motzkin", type="primary"):
     try:
-        # 1. Parse Inequalities into Standard Form (Expr <= 0)
-        raw_lines = [line.strip() for line in ineq_text.split('\n') if line.strip()]
+        # A. Parse Constraints
+        raw_lines = [line.strip() for line in constraints_txt.split('\n') if line.strip()]
         inequalities = []
+        all_symbols = set()
         
         for line in raw_lines:
-            if "<=" in line:
-                lhs, rhs = line.split("<=")
-                inequalities.append(utils.parse_expr(lhs) - utils.parse_expr(rhs))
-            elif ">=" in line:
-                lhs, rhs = line.split(">=")
-                inequalities.append(utils.parse_expr(rhs) - utils.parse_expr(lhs))
-            elif "<" in line:
-                lhs, rhs = line.split("<")
-                inequalities.append(utils.parse_expr(lhs) - utils.parse_expr(rhs))
-            elif ">" in line:
-                lhs, rhs = line.split(">")
-                inequalities.append(utils.parse_expr(rhs) - utils.parse_expr(lhs))
+            if "<=" in line: l, r = line.split("<=")
+            elif ">=" in line: r, l = line.split(">=") # Flip
+            elif "<" in line: l, r = line.split("<")
+            elif ">" in line: r, l = line.split(">") # Flip
+            else: continue
+            
+            expr = utils.parse_expr(l) - utils.parse_expr(r)
+            inequalities.append(expr)
+            all_symbols.update(expr.free_symbols)
 
-        # 2. Determine Elimination Order
-        elimination_order = [v for v in sorted_vars if v != target_var]
+        # B. Optimization Setup
+        if mode == "Optimization":
+            if not obj_func:
+                st.error("Please enter an objective function.")
+                st.stop()
+            f_expr = utils.parse_expr(obj_func)
+            z = sp.symbols('z')
+            if z in all_symbols: z = sp.symbols('z_opt')
+                
+            # z = f(x) <=> z - f(x) <= 0 AND f(x) - z <= 0
+            inequalities.append(z - f_expr)
+            inequalities.append(f_expr - z)
+            all_symbols.add(z)
+            all_symbols.update(f_expr.free_symbols)
+            target_var_name = z.name
+            
+        # C. Variable Ordering
+        sorted_vars = sorted([s.name for s in all_symbols])
+        if mode == "System Analysis":
+            if 'z' in sorted_vars: target_var_name = 'z'
+            elif 'a' in sorted_vars: target_var_name = 'a'
+            elif sorted_vars: target_var_name = sorted_vars[-1]
+        
+        elimination_order = [v for v in sorted_vars if v != target_var_name]
+        
+        if not elimination_order:
+            st.warning("Nothing to eliminate.")
         
         st.markdown("---")
         st.subheader("Step-by-Step Elimination")
         
         current_ineqs = inequalities
-        
-        for elim_var_name in elimination_order:
+        target_sym = sp.symbols(target_var_name)
+
+        # --- ELIMINATION LOOP ---
+        for step_idx, elim_var_name in enumerate(elimination_order):
             elim_var = sp.symbols(elim_var_name)
             
-            with st.expander(f"Eliminating variable: ${elim_var_name}$", expanded=True):
-                st.write(f"Current constraints: {len(current_ineqs)}")
-                
-                lower_bounds = [] # L_i <= x
-                upper_bounds = [] # x <= U_j
-                others = []       # Constraints not involving x
+            with st.expander(f"Step {step_idx + 1}: Eliminate ${elim_var_name}$", expanded=False):
+                lower, upper, others = [], [], []
                 
                 for expr in current_ineqs:
-                    coeff = expr.coeff(elim_var)
-                    rest = expr - coeff * elim_var
-                    
-                    if coeff == 0:
-                        others.append(expr)
-                    elif coeff > 0:
-                        upper_bounds.append(-rest / coeff)
-                    elif coeff < 0:
-                        lower_bounds.append(-rest / coeff)
+                    c = expr.coeff(elim_var)
+                    rest = expr - c * elim_var
+                    if c == 0: others.append(expr)
+                    elif c > 0: upper.append(-rest/c)
+                    elif c < 0: lower.append(-rest/c)
                 
-                st.markdown(f"* **Lower Bounds ($L \\le {elim_var_name}$):** {len(lower_bounds)}")
-                if lower_bounds: st.latex(", ".join([sp.latex(b) for b in lower_bounds]) + f" \le {elim_var_name}")
+                # Info
+                c_info, c_math = st.columns([1, 2])
+                with c_info:
+                    st.markdown(f"- **{len(lower)}** Lower bounds")
+                    st.markdown(f"- **{len(upper)}** Upper bounds")
+                    st.markdown(f"- **{len(others)}** Passthrough")
                 
-                st.markdown(f"* **Upper Bounds (${elim_var_name} \\le U$):** {len(upper_bounds)}")
-                if upper_bounds: st.latex(f"{elim_var_name} \le " + ", ".join([sp.latex(b) for b in upper_bounds]))
-                
-                new_constraints = []
-                for lb in lower_bounds:
-                    for ub in upper_bounds:
-                        new_constraints.append(lb - ub)
-                
-                new_constraints.extend(others)
-                
-                simplified_constraints = []
-                for c in new_constraints:
-                    simp = sp.simplify(c)
-                    if simp == True or (simp.is_number and simp <= 0): continue
-                    if simp == False or (simp.is_number and simp > 0):
-                        st.error(f"**Contradiction Found!** Derived constraint ${sp.latex(simp)} \le 0$ is impossible.")
-                        st.stop()
-                    simplified_constraints.append(simp)
-                
-                current_ineqs = list(set(simplified_constraints))
-                st.write(f"**Resulting constraints:** {len(current_ineqs)}")
+                with c_math:
+                    if lower: st.latex(f"\\max\\left\\{{ {', '.join([sp.latex(b) for b in lower])} \\right\\}} \\le {elim_var_name}")
+                    if upper: st.latex(f"{elim_var_name} \\le \\min\\left\\{{ {', '.join([sp.latex(b) for b in upper])} \\right\\}}")
 
-        # 3. Final Results
+                # New constraints (L <= U)
+                new_cons = []
+                for l in lower:
+                    for u in upper:
+                        new_cons.append(l - u)
+                new_cons.extend(others)
+                
+                # Simplify
+                simplified = []
+                for c in new_cons:
+                    s = sp.simplify(c)
+                    if s == True or (s.is_number and s <= 0): continue
+                    if s == False or (s.is_number and s > 0):
+                        st.error(f"**Contradiction:** ${sp.latex(s)} \\le 0$ is impossible.")
+                        st.stop()
+                    simplified.append(s)
+                
+                current_ineqs = list(set(simplified))
+                st.caption(f"Generated {len(simplified)} constraints for next step.")
+
+        # --- FINAL RESULTS ---
         st.markdown("---")
-        st.subheader(f"3. Final Bounds for ${target_var}$")
-        st.caption(f"This corresponds to the inequalities derived in **(4.14)** before back-substitution.")
         
         final_lower = []
         final_upper = []
-        t_sym = sp.symbols(target_var)
         
         for expr in current_ineqs:
-            coeff = expr.coeff(t_sym)
-            rest = expr - coeff * t_sym
+            c = expr.coeff(target_sym)
+            rest = expr - c * target_sym
+            if c == 0:
+                if rest > 0: st.error("Infeasible final constraint.")
+            elif c > 0: final_upper.append(-rest/c)
+            elif c < 0: final_lower.append(-rest/c)
             
-            if coeff == 0:
-                if rest > 0: st.error("System is Infeasible!")
-            elif coeff > 0:
-                final_upper.append(-rest/coeff)
-            elif coeff < 0:
-                final_lower.append(-rest/coeff)
+        st.subheader(f"3. Final Solution for ${target_var_name}$")
         
-        col_l, col_r = st.columns(2)
-        with col_l:
-            st.markdown("**Lower Bounds ($L \le z$)**")
-            if final_lower:
-                try:
-                    nums = [float(val) for val in final_lower if val.is_number]
-                    if nums: st.info(f"Tightest numerical lower bound: **{max(nums)}**")
-                except: pass
-                for val in final_lower: st.latex(f"{sp.latex(val)} \le {target_var}")
-            else:
-                st.write("None ($-\infty$)")
+        # --- PREFERRED LATEX FORMAT ---
+        latex_lines = []
+        
+        # 1. Upper Bounds (Right Side) -> & && w &\leq& RHS \\[6pt]
+        for u in final_upper:
+            latex_lines.append(f"& && {target_var_name} &\\leq& {sp.latex(u)} \\\\[6pt]")
+            
+        # 2. Lower Bounds (Left Side) -> & LHS &\leq& w && \\[6pt]
+        for l in final_lower:
+            latex_lines.append(f"&{sp.latex(l)} &\\leq& {target_var_name} && \\\\[6pt]")
+            
+        aligned_block = "\\begin{alignedat}{5}\n" + "\n".join(latex_lines) + "\n\\end{alignedat}"
+        
+        # 3. Summary (Max/Min)
+        try:
+            nums_l = [float(v) for v in final_lower if v.is_number]
+            nums_u = [float(v) for v in final_upper if v.is_number]
+            val_max = max(nums_l) if nums_l else None
+            val_min = min(nums_u) if nums_u else None
+            
+            l_str = f"\\max\\left( {', '.join([sp.latex(v) for v in final_lower])} \\right)" if final_lower else "-\\infty"
+            r_str = f"\\min\\left( {', '.join([sp.latex(v) for v in final_upper])} \\right)" if final_upper else "\\infty"
+            
+            if val_max is not None: l_str += f" = {val_max:g}"
+            if val_min is not None: r_str = f"{val_min:g} = " + r_str
+            
+            summary_eq = f"{l_str} \\le {target_var_name} \\le {r_str}"
+        except:
+            summary_eq = f"L \\le {target_var_name} \\le U"
 
-        with col_r:
-            st.markdown("**Upper Bounds ($z \le U$)**")
-            if final_upper:
-                try:
-                    nums = [float(val) for val in final_upper if val.is_number]
-                    if nums: st.info(f"Tightest numerical upper bound: **{min(nums)}**")
-                except: pass
-                for val in final_upper: st.latex(f"{target_var} \le {sp.latex(val)}")
-            else:
-                st.write("None ($+\infty$)")
+        # DISPLAY
+        col_res, col_copy = st.columns([2, 1])
+        
+        with col_res:
+            st.markdown("#### Rendered Output")
+            st.latex(aligned_block)
+            st.markdown("**Summary:**")
+            st.latex(summary_eq)
+            
+            if mode == "Optimization":
+                if opt_dir == "Maximize":
+                    if val_min is not None: st.success(f"**Optimal Max:** {val_min:g}")
+                    else: st.warning("Unbounded (No upper limit).")
+                else:
+                    if val_max is not None: st.success(f"**Optimal Min:** {val_max:g}")
+                    else: st.warning("Unbounded (No lower limit).")
+
+        with col_copy:
+            st.markdown("#### LaTeX Code")
+            full_code = f"$$\n{aligned_block}\n$$\n\n$$\n{summary_eq}\n$$"
+            st.code(full_code, language="latex")
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"An error occurred: {e}")

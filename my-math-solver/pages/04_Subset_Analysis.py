@@ -1,137 +1,202 @@
 import streamlit as st
 import sympy as sp
+import numpy as np
 import utils
+from scipy.optimize import linprog
+
 st.set_page_config(layout="wide")
 utils.setup_page()
-st.markdown("<h1 class='main-header'>Subset Analysis & Proof Generator</h1>", unsafe_allow_html=True)
-st.info("Analyze properties of a subset $C$ (Convexity, Closedness, Boundedness, Compactness) with curriculum proofs.")
+
+st.markdown("<h1 class='main-header'>Subset Analysis & Proof Steps</h1>", unsafe_allow_html=True)
+st.info("Analyze subset $C$ for Convexity, Closedness, Boundedness, and Compactness based on curriculum definitions.")
+
+# --- SIDEBAR / EXAMPLES ---
+# Define preset examples from exams
+examples = {
+    "Custom": {
+        "vars": "x, y",
+        "const": "x**2 + y**2 <= 4\nx + y >= 1"
+    },
+    "IMO Jan 2022 Q1c (Linear 3D)": {
+        "vars": "x, y, z",
+        "const": "z - x <= 0\nz + x <= 0\nz - y <= 0\nz + y <= 0\n-1 - z <= 0"
+    },
+    "IMO Jan 2023 Q1 (Linear 2D)": {
+        "vars": "x, y",
+        "const": "x + y <= 10\n2*x + y <= 15\n-x <= 0\n-y <= 0"
+    },
+    "IMO Jan 2025 Q1 (Non-linear 2D)": {
+        "vars": "x, y",
+        "const": "x**2 + y**2 <= 4\n1 - x - y <= 0"
+    }
+}
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("Define Subset C")
-    vars_input = st.text_input("Variables:", "x, y")
+    
+    # Selection logic
+    selected_ex = st.selectbox("Load Example:", list(examples.keys()), index=1) # Default to Jan 22
+    
+    # Text Inputs (pre-filled)
+    vars_input = st.text_input("Variables (comma separated):", value=examples[selected_ex]["vars"])
     constraints_input = st.text_area(
-        "Inequalities (e.g. x**2 + y**2 <= 4):", 
-        "x**2 + y**2 <= 4\nx + y >= 1"
+        "Inequalities (g(x) <= 0):", 
+        value=examples[selected_ex]["const"],
+        height=200
     )
+    st.caption("Enter constraints in the form `lhs <= rhs` or similar.")
 
 with col2:
-    if st.button("Analyze & Generate Proof", type="primary"):
+    if st.button("Analyze & Generate Steps", type="primary"):
         try:
+            # 1. Parse Variables
             vars_sym = [sp.symbols(v.strip()) for v in vars_input.split(',')]
             
-            # Parse Constraints
+            # 2. Parse Constraints
             raw_lines = [line.strip() for line in constraints_input.split('\n') if line.strip()]
             parsed_constraints = []
             
-            for line in raw_lines:
-                if "<=" in line:
-                    lhs, rhs = line.split("<=")
-                    expr = utils.parse_expr(lhs) - utils.parse_expr(rhs)
-                    parsed_constraints.append((expr, "<="))
-                elif ">=" in line:
-                    lhs, rhs = line.split(">=")
-                    expr = utils.parse_expr(rhs) - utils.parse_expr(lhs)
-                    parsed_constraints.append((expr, "<="))
-                elif "=" in line:
-                    lhs, rhs = line.split("=")
-                    expr = utils.parse_expr(lhs) - utils.parse_expr(rhs)
-                    parsed_constraints.append((expr, "="))
-                elif "<" in line:
-                    lhs, rhs = line.split("<")
-                    expr = utils.parse_expr(lhs) - utils.parse_expr(rhs)
-                    parsed_constraints.append((expr, "<"))
-                elif ">" in line:
-                    lhs, rhs = line.split(">")
-                    expr = utils.parse_expr(rhs) - utils.parse_expr(lhs)
-                    parsed_constraints.append((expr, "<"))
-
-            st.subheader("Formal Proof")
+            # For Linear Programming check
+            linear_constraints = [] # Tuples of (coeffs, constant) for A_ub * x <= b_ub
+            is_fully_linear = True
             
-            # 1. CONVEXITY
-            st.markdown("### 1. Convexity Analysis")
-            st.markdown("<div class='proof-step'><b>Strategy:</b> Check Hessian of constraints (Theorem 8.23) and intersection properties (Exercise 4.23).</div>", unsafe_allow_html=True)
-            
-            all_convex = True
-            for g, rel in parsed_constraints:
-                hessian = sp.hessian(g, vars_sym)
-                try:
-                    if hessian.is_zero_matrix:
-                        st.write(f"Constraint ${sp.latex(g)} {rel} 0$ is linear.")
-                        st.caption("Linear functions define convex sets (Hyperplanes/Half-spaces).")
-                    else:
-                        evals = hessian.eigenvals()
-                        is_psd = True
-                        for ev in evals:
-                            if (ev.is_real and ev < 0) or (ev.is_number and ev < 0):
-                                is_psd = False
-                        
-                        if is_psd:
-                            st.write(f"Function $g(x) = {sp.latex(g)}$ has a **Positive Semi-Definite Hessian**.")
-                            st.latex(f"H_g = {sp.latex(hessian)}")
-                            st.caption("By **Theorem 8.23**, $g$ is convex. By **Lemma 4.27**, the sublevel set is convex.")
-                        else:
-                            st.write(f"Constraint ${sp.latex(g)} {rel} 0$: Convexity check indeterminate (Hessian not clearly PSD).")
-                            all_convex = False
-                except:
-                    st.write(f"Constraint ${sp.latex(g)} {rel} 0$: Could not automatically verify convexity.")
-                    all_convex = False
+            for i, line in enumerate(raw_lines):
+                rel = ""
+                if "<=" in line: rel = "<="; lhs, rhs = line.split("<=")
+                elif ">=" in line: rel = ">="; lhs, rhs = line.split(">=")
+                elif "=" in line: rel = "="; lhs, rhs = line.split("=")
+                else: continue
+                
+                # Standardize to g(x) <= 0
+                expr = utils.parse_expr(lhs) - utils.parse_expr(rhs)
+                if rel == ">=": expr = -expr
+                
+                # Store for analysis
+                parsed_constraints.append({
+                    "expr": expr,
+                    "latex": sp.latex(expr),
+                    "id": i + 1,
+                    "rel": rel
+                })
 
-            if all_convex:
-                st.success("**Conclusion:** $C$ is the intersection of convex sets. By **Exercise 4.23**, $C$ is **CONVEX**.")
-            else:
-                st.warning("**Conclusion:** Could not prove convexity for all constraints automatically.")
-
-            # 2. CLOSEDNESS
-            st.markdown("### 2. Closedness Analysis")
-            st.markdown("<div class='proof-step'><b>Strategy:</b> Check inequality types using **Proposition 5.51** (Continuous Preimages).</div>", unsafe_allow_html=True)
-            
-            is_closed = True
-            for g, rel in parsed_constraints:
-                if rel in ["<=", ">=", "="]:
-                    st.write(f"Constraint ${sp.latex(g)} {rel} 0$: Defines a closed set.")
-                    st.caption("Preimage of a closed interval under a continuous function is closed (**Prop 5.51**).")
+                # Check linearity for linprog
+                if expr.is_polynomial() and expr.as_poly(vars_sym).total_degree() == 1:
+                    poly = expr.as_poly(vars_sym)
+                    coeffs = [float(poly.coeff_monomial(v)) for v in vars_sym]
+                    constant = -float(poly.coeff_monomial(1)) # Move const to RHS: ax + by <= -c
+                    linear_constraints.append((coeffs, constant))
                 else:
-                    st.error(f"Constraint ${sp.latex(g)} {rel} 0$: Strict inequality usually defines an OPEN set.")
-                    is_closed = False
-            
-            if is_closed:
-                st.success("**Conclusion:** $C$ is the intersection of closed sets. By **Proposition 5.39**, $C$ is **CLOSED**.")
-            else:
-                st.error("**Conclusion:** $C$ is **NOT CLOSED** (contains strict inequalities).")
+                    is_fully_linear = False
 
-            # 3. BOUNDEDNESS
-            st.markdown("### 3. Boundedness Analysis")
-            st.markdown("<div class='proof-step'><b>Strategy:</b> Check for ball constraints $|x|^2 \le R^2$ (**Definition 5.29**).</div>", unsafe_allow_html=True)
-            
+            # --- BOUNDEDNESS LOGIC (Improved) ---
+            box_bounds = {v: [float('-inf'), float('inf')] for v in vars_sym}
             is_bounded = False
-            squared_sum = sum(v**2 for v in vars_sym)
             
-            for g, rel in parsed_constraints:
-                diff = sp.simplify(g - squared_sum)
-                if diff.is_constant() and rel == "<=":
-                    R_squared = -diff
-                    if R_squared > 0:
-                        st.write(f"Constraint ${sp.latex(g)} \le 0$ implies $|x|^2 \le {R_squared}$.")
-                        st.caption(f"This subset is contained in a ball $B(0, \sqrt{{{R_squared}}})$.")
-                        is_bounded = True
+            # Method A: Explicit Sphere/Ball Check (Non-linear)
+            # Looks for x^2 + y^2 + ... <= R
+            sq_sum = sum(v**2 for v in vars_sym)
+            for c in parsed_constraints:
+                # heuristic: if g(x) = x^2 + y^2 - R <= 0
+                diff = sp.simplify(c["expr"] - sq_sum)
+                if diff.is_constant() and float(diff) < 0:
+                    R_sq = -float(diff)
+                    limit = np.sqrt(R_sq)
+                    for v in vars_sym:
+                        box_bounds[v] = [-limit, limit]
+                    is_bounded = True
+                    break
+
+            # Method B: Linear Programming (scipy)
+            # If Method A failed but we have linear constraints, try to bound every variable
+            if not is_bounded and linear_constraints:
+                A_ub = [x[0] for x in linear_constraints]
+                b_ub = [x[1] for x in linear_constraints]
+                
+                lp_bounded_count = 0
+                for i, v in enumerate(vars_sym):
+                    # Minimize x_i
+                    c_min = [0]*len(vars_sym); c_min[i] = 1
+                    res_min = linprog(c_min, A_ub=A_ub, b_ub=b_ub, bounds=(None, None), method='highs')
+                    
+                    # Maximize x_i (Minimize -x_i)
+                    c_max = [0]*len(vars_sym); c_max[i] = -1
+                    res_max = linprog(c_max, A_ub=A_ub, b_ub=b_ub, bounds=(None, None), method='highs')
+                    
+                    if res_min.success and res_max.success:
+                        box_bounds[v][0] = res_min.fun
+                        box_bounds[v][1] = -res_max.fun # negate because we minimized -x
+                        lp_bounded_count += 1
+                
+                if lp_bounded_count == len(vars_sym):
+                    is_bounded = True
+
+            # --- RENDER ANALYSIS ---
+            st.markdown("---")
+            st.subheader("Step-by-Step Analysis")
+
+            # 1. Closedness
+            st.markdown("### 1. Closedness (Preimages)")
+            st.write("To show that $C$ is closed, we examine the preimages of the constraint functions defining the intersection:")
+            
+            # Build intersection string
+            intersection_str = " \\cap ".join([f"\\{{ v \\mid g_{{{c['id']}}}(v) \\leq 0 \\}}" for c in parsed_constraints])
+            st.latex(f"C = {intersection_str}")
+            
+            st.write("The preimage of the functions is:")
+            preimage_str = " \\cap ".join([f"g_{{{c['id']}}}^{{-1}}((-\\infty, 0])" for c in parsed_constraints])
+            st.latex(preimage_str)
+            
+            st.markdown("""
+            * **Prop [5.42]:** Intervals of the form $(-\infty, a]$ are closed sets in $\mathbb{R}$.
+            * **Prop [5.51]:** The preimage of a closed set under a continuous function is closed.
+            * **Remark [5.59]:** Polynomials are continuous functions.
+            * **Prop [5.39]:** The intersection of closed sets is closed.
+            """)
+            st.success("Conclusion: Since $C$ is an intersection of closed sets, **$C$ is Closed**.")
+
+            # 2. Boundedness
+            st.markdown("### 2. Boundedness")
+            st.write("To show $C$ is bounded, we attempt to find the range of values for each variable:")
+            
+            max_r_sq = 0
+            
+            for v in vars_sym:
+                low, high = box_bounds[v]
+                if low == float('-inf') or high == float('inf'):
+                    st.latex(f"{sp.latex(v)} \\in (-\\infty, \\infty) \\quad \\text{{(Bounds not found)}}")
+                else:
+                    st.latex(f"{sp.latex(v)} \\in [{low:.2f}, {high:.2f}]")
+                    max_r_sq += max(abs(low), abs(high))**2
             
             if is_bounded:
-                st.success("**Conclusion:** $C$ is contained in a finite ball. $C$ is **BOUNDED**.")
+                radius = np.sqrt(max_r_sq)
+                st.write(f"From **Definition [5.29]**, $C$ is bounded if $C \\subseteq B(0, R)$. We calculate the maximum norm $|u|$:")
+                
+                sq_sum_tex = "+".join([f"|{v}|^2" for v in vars_sym])
+                val_sum_tex = "+".join([f"{max(abs(b[0]), abs(b[1])):.2f}^2" for b in box_bounds.values()])
+                
+                st.latex(f"|u| = \\sqrt{{{sq_sum_tex}}} \\leq R")
+                st.latex(f"\\sqrt{{{val_sum_tex}}} = \\sqrt{{{max_r_sq:.2f}}} \\implies R \\geq {radius:.2f}")
+                
+                st.success(f"Conclusion: For any $R \\geq {radius:.2f}$, the ball $B(0, R)$ contains $C$. Thus **$C$ is Bounded**.")
             else:
-                st.warning("**Conclusion:** Could not explicitly find a bounding constraint (like $x^2+y^2 \le R$). Boundedness is Undetermined.")
+                st.error("Conclusion: Could not find finite bounds for all variables. **Boundedness is Indeterminate**.")
 
-            # 4. COMPACTNESS
-            st.markdown("### 4. Compactness Analysis")
-            st.markdown("<div class='proof-step'><b>Strategy:</b> Combine Closed and Bounded (**Definition 5.43**).</div>", unsafe_allow_html=True)
+            # 3. Compactness
+            st.markdown("### 3. Compactness")
+            st.write("From **Definition [5.43]**, a subset is Compact if it is Closed and Bounded.")
             
-            if is_closed and is_bounded:
-                st.success("Since $C$ is both **CLOSED** and **BOUNDED**, by **Definition 5.43**, $C$ is **COMPACT**.")
-            elif not is_closed:
-                st.error("Since $C$ is **NOT CLOSED**, it is **NOT COMPACT**.")
+            if is_bounded:
+                st.success("Since $C$ is Closed and Bounded, **$C$ is COMPACT**.")
+                st.markdown("""
+                **Implication:** From **Theorem [5.66]** (Extreme Value Theorem), a continuous function on a compact set attains its maximum and minimum. 
+                Therefore, the optimization problem has a solution.
+                """)
             else:
-                st.warning("Compactness is Indeterminate (Boundedness could not be proven automatically).")
+                st.warning("Since Boundedness is not proven, **Compactness is Undetermined**.")
 
         except Exception as e:
-            st.error(f"Error during analysis: {e}")
+            st.error(f"Error parsing inputs: {e}")
+            st.write("Ensure variables match used constraints.")

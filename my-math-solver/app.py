@@ -27,13 +27,14 @@ except:
 st.markdown("""
 <div style='text-align: center; margin-bottom: 15px;'>
     <span style='background-color: #2196F3; color: white; padding: 4px 8px; border-radius: 15px; font-size: 0.9rem; font-weight: bold;'>
-        v2.0
+        v3.0
     </span>
 </div>
 <div style='text-align: center; color: gray; margin-top: 10px; font-style: italic;'>
-    Made by my good friend
+    Made in collaboration with my good friend
 </div>
 """, unsafe_allow_html=True)
+
 
 # --- RANDOM FUNNY TIP SECTION ---
 quotes = [

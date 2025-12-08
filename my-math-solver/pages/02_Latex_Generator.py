@@ -4,7 +4,7 @@ import pandas as pd
 import utils
 
 # 1. Setup
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_icon="✍️")
 utils.setup_page()
 st.markdown("<h1 class='main-header'>LaTeX Generator</h1>", unsafe_allow_html=True)
 
@@ -18,8 +18,9 @@ mode = st.radio(
         "Matrix / Vector", 
         "Cases / Systems", 
         "Optimization Problem",
-        "∫ Calculus / Sums",       # NEW
-        "Table Generator"        # NEW
+        "∫ Calculus / Sums", 
+        "Logic & Set Theory",    # NEW!
+        "Table Generator"
     ],
     horizontal=True
 )
@@ -45,8 +46,11 @@ if mode == "Python Math -> LaTeX":
         expr = utils.parse_expr(math_input)
         if expr:
             latex_code = sp.latex(expr)
-            st.markdown(f"**Preview:** ${latex_code}$")
-            st.code(latex_code, language="latex")
+            # Wrap in $$
+            final_output = f"$$ {latex_code} $$"
+            
+            st.markdown(f"**Preview:** {final_output}")
+            st.code(final_output, language="latex")
         else:
             st.warning("Waiting for valid input...")
 
@@ -103,11 +107,13 @@ elif mode == "Matrix / Vector":
                         matrix_rows.append(" & ".join(row_cells))
                 
                 body = " \\\\\n".join(matrix_rows)
-                env = "pmatrix"
-                latex_out = f"\\begin{{{env}}}\n{body}\n\\end{{{env}}}"
+                env = "pmatrix" # Parentheses matrix
+                
+                # Wrapped in $$
+                latex_out = f"$$ \\begin{{{env}}}\n{body}\n\\end{{{env}}} $$"
                 
                 st.markdown("**Preview:**")
-                st.latex(latex_out)
+                st.latex(latex_out.replace("$$", "")) # Streamlit latex() doesn't need $$ to render
                 st.markdown("**Code:**")
                 st.code(latex_out, language="latex")
                 
@@ -123,7 +129,7 @@ elif mode == "Cases / Systems":
         st.subheader("Equations")
         default_sys = "2*x + y = 1\nx + 2*y = t"
         eq_input = utils.p_text_area("One equation per line:", "latex_sys_input", default_sys)
-        style = st.radio("Style:", ["Aligned System (align*)", "Cases (curly brace)"])
+        style = st.radio("Style:", ["Aligned System", "Cases (curly brace)"])
 
     with col2:
         st.subheader("Output")
@@ -138,12 +144,14 @@ elif mode == "Cases / Systems":
             else:
                 latex_lines.append(sp.latex(utils.parse_expr(l)))
         
-        if style == "Aligned System (align*)":
-            final_tex = "\\begin{align*}\n" + " \\\\\n".join(latex_lines) + "\n\\end{align*}"
+        # Wrapped in $$
+        if style == "Aligned System":
+            # Switched to 'aligned' so it works inside $$
+            final_tex = "$$ \\begin{aligned}\n" + " \\\\\n".join(latex_lines) + "\n\\end{aligned} $$"
         else:
-            final_tex = "\\begin{cases}\n" + " \\\\\n".join(latex_lines) + "\n\\end{cases}"
+            final_tex = "$$ \\begin{cases}\n" + " \\\\\n".join(latex_lines) + "\n\\end{cases} $$"
             
-        st.latex(final_tex)
+        st.latex(final_tex.replace("$$", ""))
         st.code(final_tex, language="latex")
 
 # ==========================================
@@ -163,21 +171,24 @@ elif mode == "Optimization Problem":
         const_lines = []
         for c in consts.split('\n'):
             if c.strip():
+                # Simple replacement for inequalities
                 c_tex = c.replace("<=", "\\le").replace(">=", "\\ge").replace("**", "^").replace("*", "")
                 const_lines.append(c_tex)
         
         c_block = " \\\\\n".join([f"& {c}" for c in const_lines])
+        
+        # Wrapped in $$
         final_tex = (
-            f"\\begin{{aligned}}\n"
+            f"$$ \\begin{{aligned}}\n"
             f"\\text{{{op_type} }} & {f_tex} \\\\\n"
             f"\\text{{subject to }} {c_block}\n"
-            f"\\end{{aligned}}"
+            f"\\end{{aligned}} $$"
         )
-        st.latex(final_tex)
+        st.latex(final_tex.replace("$$", ""))
         st.code(final_tex, language="latex")
 
 # ==========================================
-# MODE 5: CALCULUS / SUMS (NEW)
+# MODE 5: CALCULUS / SUMS
 # ==========================================
 elif mode == "∫ Calculus / Sums":
     col1, col2 = st.columns([1, 1])
@@ -186,90 +197,130 @@ elif mode == "∫ Calculus / Sums":
         st.subheader("Operator Setup")
         op_type = st.selectbox("Operator:", ["Summation (∑)", "Integral (∫)", "Limit (lim)", "Derivative (d/dx)"])
         
-        func_str = utils.p_text_input("Expression (e.g. x**2):", "calc_gen_func", "x**i")
+        func_str = utils.p_text_input("Expression (e.g. x**2):", "calc_gen_func", "f(x,y)")
         
         if op_type == "Derivative (d/dx)":
             var_str = utils.p_text_input("Variable:", "calc_gen_var", "x")
             order = st.number_input("Order:", 1, 5, 1)
+            is_partial = st.checkbox("Partial Derivative (∂)", value=False)
             lim_from, lim_to = None, None
         else:
             c1, c2, c3 = st.columns(3)
             var_str = c1.text_input("Variable:", "i" if "Sum" in op_type else "x")
             lim_from = c2.text_input("From / Point:", "1" if "Sum" in op_type else "0")
             lim_to = c3.text_input("To (Optional):", "n" if "Sum" in op_type else "inf")
+            is_partial = False
 
     with col2:
         st.subheader("Output")
         if st.button("Generate Math", type="primary"):
             try:
-                f_tex = sp.latex(utils.parse_expr(func_str))
+                parsed_expr = utils.parse_expr(func_str)
+                f_tex = sp.latex(parsed_expr) if parsed_expr else func_str
                 
                 if op_type == "Summation (∑)":
-                    final_tex = f"\\sum_{{{var_str}={lim_from}}}^{{{lim_to}}} {f_tex}"
+                    inner_tex = f"\\sum_{{{var_str}={lim_from}}}^{{{lim_to}}} {f_tex}"
                 
                 elif op_type == "Integral (∫)":
                     bounds = f"_{{{lim_from}}}^{{{lim_to}}}" if lim_to else f"_{{{lim_from}}}"
                     if not lim_from and not lim_to: bounds = ""
-                    final_tex = f"\\int{bounds} {f_tex} \\, d{var_str}"
+                    inner_tex = f"\\int{bounds} {f_tex} \\, d{var_str}"
                     
                 elif op_type == "Limit (lim)":
-                    final_tex = f"\\lim_{{{var_str} \\to {lim_from}}} {f_tex}"
+                    inner_tex = f"\\lim_{{{var_str} \\to {lim_from}}} {f_tex}"
                     
                 elif op_type == "Derivative (d/dx)":
+                    d_sym = "\\partial" if is_partial else "d"
                     d_part = f"^{order}" if order > 1 else ""
-                    final_tex = f"\\frac{{d{d_part}}}{{d{var_str}{d_part}}} \\left( {f_tex} \\right)"
+                    inner_tex = f"\\frac{{{d_sym}{d_part}}}{{{d_sym}{var_str}{d_part}}} \\left( {f_tex} \\right)"
                 
-                st.markdown(f"**Preview:** $${final_tex}$$")
+                # Wrapped in $$
+                final_tex = f"$$ {inner_tex} $$"
+
+                st.markdown(f"**Preview:** {final_tex}")
                 st.code(final_tex, language="latex")
                 
             except Exception as e:
                 st.error(f"Error: {e}")
 
 # ==========================================
-# MODE 6: TABLE GENERATOR
+# MODE 6: LOGIC & SET THEORY
+# ==========================================
+elif mode == "Logic & Set Theory":
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("Logic Builder")
+        st.caption("Construct set definitions like: $\{ x \in \mathbb{R} \mid x > 0 \}$")
+        
+        l_var = st.text_input("Variable(s):", "x")
+        
+        st.write("Sets:")
+        c_sets = st.columns(4)
+        set_choice = "S" 
+        if c_sets[0].button("ℝ (Real)"): set_choice = "\\mathbb{R}"
+        if c_sets[1].button("ℕ (Nat)"): set_choice = "\\mathbb{N}"
+        if c_sets[2].button("ℤ (Int)"): set_choice = "\\mathbb{Z}"
+        if c_sets[3].button("ℚ (Rat)"): set_choice = "\\mathbb{Q}"
+        
+        l_set = st.text_input("Element of Set:", set_choice)
+        l_cond = st.text_input("Condition (Predicate):", "x^2 > 0")
+        
+        quantifier = st.radio("Quantifier:", ["None", "For all (∀)", "Exists (∃)"], horizontal=True)
+
+    with col2:
+        st.subheader("Output")
+        
+        if quantifier == "For all (∀)":
+            inner_tex = f"\\forall {l_var} \\in {l_set}: {l_cond}"
+        elif quantifier == "Exists (∃)":
+            inner_tex = f"\\exists {l_var} \\in {l_set}: {l_cond}"
+        else:
+            inner_tex = f"\\{{ {l_var} \\in {l_set} \\mid {l_cond} \\}}"
+            
+        # Wrapped in $$
+        final_tex = f"$$ {inner_tex} $$"
+            
+        st.markdown(f"**Preview:** {final_tex}")
+        st.code(final_tex, language="latex")
+        
+        st.markdown("### Quick Symbols")
+        st.code("\\in", language="latex")
+        st.code("\\subseteq", language="latex")
+        st.code("\\cup", language="latex")
+        st.code("\\cap", language="latex")
+        st.code("\\setminus", language="latex")
+
+# ==========================================
+# MODE 7: TABLE GENERATOR
 # ==========================================
 elif mode == "Table Generator":
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.subheader("1. Input Data")
-        
-        st.info("""
-        **Format Instructions (CSV):**
-        * **Columns:** Separate values with a **comma** (`,`).
-        * **Rows:** Press **Enter** for a new line.
-        * **Math:** You can type normal math like `$x^2$` inside the cells.
-        """)
+        st.info("Standard CSV format. Tables should usually NOT be wrapped in $$ $$ as they are floating environments.")
         
         default_data = "Iteration, $x_n$, $f(x_n)$\n1, 0.5, 0.25\n2, 0.2, 0.04\n3, 0.1, 0.01"
         raw_data = utils.p_text_area("Table Data:", "latex_table_input", default_data, height=200)
         
-        st.subheader("2. Settings")
         add_header = st.checkbox("First row is a Header (bold + line)", value=True)
         center_align = st.checkbox("Center Align All Columns", value=True)
 
     with col2:
         st.subheader("3. Visual Preview")
-        
-        # Parse data immediately for the preview
         rows = [r.split(',') for r in raw_data.split('\n') if r.strip()]
         
         if rows:
             try:
-                # Clean up whitespace
                 clean_rows = [[cell.strip() for cell in row] for row in rows]
-                
-                # Create a DataFrame for a nice "Spreadsheet" look
                 if add_header:
                     header = clean_rows[0]
                     body = clean_rows[1:]
                     df = pd.DataFrame(body, columns=header)
                 else:
                     df = pd.DataFrame(clean_rows)
-                
-                # Show the Rendered Table
                 st.table(df)
-                
             except Exception as e:
                 st.warning(f"Preview unavailable: {e}")
         
@@ -279,31 +330,26 @@ elif mode == "Table Generator":
             if not rows:
                 st.error("Please enter some data first.")
             else:
-                # Calculate columns based on the widest row
                 num_cols = max(len(r) for r in rows)
-                
-                # Create alignment string (e.g., "|c|c|c|")
                 col_char = "c" if center_align else "l"
                 align_str = "|" + (col_char + "|") * num_cols
                 
                 latex_rows = []
                 for i, row in enumerate(rows):
-                    # Pad row if it's shorter than the max columns
                     clean_cells = [x.strip() for x in row]
                     while len(clean_cells) < num_cols:
                         clean_cells.append("")
                     
-                    # Join with &
                     line_str = " & ".join(clean_cells) + " \\\\"
                     
-                    # Add horizontal line after header
                     if i == 0 and add_header:
                         line_str += " \\hline"
                         
                     latex_rows.append(line_str)
                 
-                # Assemble full code
                 body_code = "\n".join(latex_rows)
+                
+                # Table Environment (No $$ needed)
                 final_tex = (
                     f"\\begin{{table}}[h!]\n"
                     f"\\centering\n"

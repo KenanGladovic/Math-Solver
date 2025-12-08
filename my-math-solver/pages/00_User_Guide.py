@@ -11,7 +11,7 @@ st.info("This tool runs entirely on your computer using Python. This guide expla
 
 
 # --- TABS FOR ORGANIZATION ---
-tab1, tab2, tab3 = st.tabs(["🔣 Syntax Cheat Sheet", "⚠️ Common Errors", "🛠️ Tool Overviews"])
+tab1, tab2 = st.tabs(["🔣 Syntax Cheat Sheet", "⚠️ Common Errors"])
 
 # ==================================================
 # TAB 1: SYNTAX (Updated for Exams)
@@ -119,25 +119,3 @@ with tab2:
         * Check your x min/max ranges.
         * Example: Plotting `log(x)` starting at `x = -5` will fail because log is undefined for negative numbers. Change start to `0.1`.
         """)
-
-# ==================================================
-# TAB 3: TOOL OVERVIEWS
-# ==================================================
-with tab3:
-    st.subheader("Exam Strategy Map")
-    
-    st.markdown("""
-    ### 🧠 Analysis Tools
-    * **KKT Tool:** It generates the LaTeX conditions for you and verifies if points like $(2,0)$ are optimal.
-    * **Subset Analysis:** Use when asked if a set $C$ is "Compact", "Closed", or "Bounded".
-    
-    ### 📉 Calculus & Solvers
-    * **Newton's Method:** Use if asked to find roots or optimize without a formula.
-    * **Fourier-Motzkin:** Use for systems of inequalities.
-    * **Equation Solver:** Use to check your algebra when solving $\\nabla f = 0$.
-    
-    ### 📐 Linear Algebra 
-    * **Matrix Operations:** Use for inverses, determinants, and multiplication.
-    * **Symmetric Diagonalization:** Use for $B^T A B = D$ problems (Chapter 8).
-    * **Least Squares:** Use for fitting lines/circles to points.
-    """)

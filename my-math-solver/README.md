@@ -4,38 +4,26 @@ A powerful, offline mathematical toolkit built with Python and Streamlit. This a
 
 ## 🚀 Features
 
-This application uses a multi-page structure. Use the **Sidebar** to navigate between tools.
+This application includes the following tools (located in the sidebar):
 
-### 📚 Guides & Utilities
-* **User Guide:** A complete guide on Python math syntax (`**` vs `^`, `log` vs `ln`), common errors, and exam strategies.
-* **LaTeX Generator:** Instantly generates LaTeX code for Matrices, Systems of Equations, and Optimization Problems to copy-paste into your exam paper.
-
-### 🧠 Analysis & Optimization
-* **KKT Master Tool:** The ultimate exam tool. Generates symbolic KKT conditions ($\nabla L = 0$, etc.) and verifies if a specific candidate point is optimal.
-* **Subset Analysis:** Analyzes sets defined by inequalities for Convexity, Closedness, Boundedness, and Compactness.
-* **Newton's Method:**
-    * *Root Finding:* Solves $f(x)=0$ (1D).
-    * *Optimization:* Finds local minima for multivariable functions.
-* **Gradient Descent:** 3D visualization of the descent algorithm with adjustable learning rates.
-* **Fourier-Motzkin Elimination:** Solves systems of linear inequalities by eliminating variables step-by-step.
-
-### 📐 Linear Algebra
-* **Matrix Operations:** Computes Determinants, Inverses, Transposes, and performs Multiplication.
-* **Symmetric Diagonalization:** Performs the $B^T A B = D$ reduction schematic procedure step-by-step.
-* **Matrix Definiteness:** Classifies a matrix (PD, ND, Indefinite) using the curriculum method (Symmetric Reduction) to determine critical point types.
-* **Hessian Analysis:** Calculates the Gradient and Hessian matrix of a function.
-
-### 📉 Fitting & Regression
-* **Least Squares:** Fits Polynomials and Circles to data points using Normal Equations ($A^T A x = A^T b$).
-* **Lagrange Interpolation:** Finds the *exact* polynomial passing through points (Math behind Shamir's Secret Sharing).
-* **Perceptron:** Visualizes the linear classification algorithm and finding separating hyperplanes.
-
-### 🧮 General Math
-* **Plotting Tool:** Visualizes 1D functions, 2D contours (with feasible regions), and 3D surfaces.
-* **Calculus:** Computes Symbolic Derivatives and Limits.
-* **Equation Solver:** Solves symbolic equations.
-
----
+1.  **User Guide:** Explains syntax, common errors, and exam tips.
+2.  **Latex Generator:** Generates copy-paste LaTeX code for matrices and equations.
+3.  **KKT Optimization:** Generates conditions and verifies candidate points for optimality.
+4.  **Subset Analysis:** Analyzes sets for Convexity, Closedness, Boundedness, and Compactness.
+5.  **Plotting Tool:** Visualizes 1D functions, 2D contours (with constraints), and 3D surfaces.
+6.  **Hessian Matrix:** Computes Gradients, Hessians, and classifies critical points (Min/Max/Saddle).
+7.  **Symmetric Diagonalization:** Performs the $B^T A B = D$ reduction schematic procedure step-by-step.
+8.  **Fourier Motzkin:** Eliminates variables from systems of linear inequalities.
+9.  **Newtons Method:** Performs root finding (1D) and multivariable optimization iterations.
+10. **Least Squares:** Fits Polynomials and Circles to data points using Normal Equations.
+11. **Matrix Operations:** Computes Determinants, Inverses, Transposes, and Multiplication.
+12. **Perceptron:** Visualizes the linear classification algorithm and weight updates.
+13. **Calculus Solver:** Computes symbolic Derivatives (partial/total) and Limits.
+14. **Equation Solver:** Solves symbolic algebraic equations and systems.
+15. **Lagrange Interpolation:** Finds the exact polynomial passing through a specific set of points.
+16. **Gradient Descent:** Visualizes the descent algorithm in 2D/3D with adjustable learning rates.
+17. **Definiteness Checker:** Classifies matrices (Positive Definite, Indefinite, etc.)
+18. **Support Vector Machines:** Solves for the optimal separating hyperplane.
 
 ## 🛠️ Installation & Setup
 
@@ -46,23 +34,11 @@ Download Python from [python.org](https://www.python.org/downloads/).
 > **IMPORTANT:** When installing, check the box **"Add Python to PATH"** at the bottom of the installer window.
 
 ### 2. Install Libraries
-Open a terminal (Command Prompt) inside this folder and run:
-
+Open a terminal (Command Prompt) in this folder and run:
 ```bash
-pip install -r requirements.txt
-(If pip is not recognized, try py -m pip install -r requirements.txt).
-```
+pip install streamlit sympy numpy pandas matplotlib scipy plotly
 
-## 🛠️ Run program locally
 
-### 1. Download
-Create a folder and insert:
-- app.py
-- background.jpg
-- requirements.txt
-- utils.py
-- pages (complete folder)
-- Run_Calculator.bat
-
-### 2. Run
-Open Run_Calculator
+### How to run manually
+Run this command in a terminal:
+python -m streamlit run Home.py
