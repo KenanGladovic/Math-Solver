@@ -1,6 +1,6 @@
 # Kenan's IMO Math Calculator
 
-A powerful, offline mathematical toolkit built with Python and Streamlit. This application provides step-by-step solutions for advanced optimization, linear algebra, and calculus problems based on the IMO curriculum.
+Offline mathematical toolkit built with Python and Streamlit. This application provides step-by-step solutions for advanced optimization, linear algebra, and calculus problems based on the IMO curriculum.
 
 ## 🚀 Features
 
