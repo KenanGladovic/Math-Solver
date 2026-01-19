@@ -51,20 +51,6 @@ st.components.v1.html(
     height=120 # Reduced height slightly since text was removed
 )
 
-# 5. Image Section
-current_dir = os.path.dirname(os.path.abspath(__file__))
-image_path = None
-for ext in ['jpg', 'png', 'jpeg']:
-    temp_path = os.path.join(current_dir, f'background.{ext}')
-    if os.path.exists(temp_path):
-        image_path = temp_path
-        break
-
-if image_path:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(image_path, caption='', width=600)
-
 # 6. Version & Footer
 st.markdown("""
 <div style='text-align: center; margin-top: 30px; margin-bottom: 15px;'>
