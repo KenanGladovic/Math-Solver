@@ -9,7 +9,7 @@ st.markdown("<h1 class='main-header'> Local Installation Guide</h1>", unsafe_all
 
 # --- CONFIGURATION ---
 # REPLACE THIS LINK with your actual Google Drive folder link
-drive_link = "https://drive.google.com/drive/folders/YOUR_FOLDER_ID?usp=sharing"
+drive_link = "https://drive.google.com/drive/folders/1teuqC0BvSyBFGmAB-HsWI_5CWGCidxzp?usp=drive_link"
 
 # Create two distinct columns with a large gap
 left_col, right_col = st.columns(2, gap="large")
