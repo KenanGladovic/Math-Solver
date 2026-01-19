@@ -3,6 +3,11 @@ import os
 import utils
 import datetime
 
+# --- 🛠️ UPDATE THIS DATE BEFORE SHARING ---
+LAST_UPDATE = "January 19, 2026"
+VERSION = "v3.2"
+# ------------------------------------------
+
 # 1. Page Configuration
 st.set_page_config(page_title="Math Solver", layout="wide", page_icon="∫")
 
@@ -13,7 +18,6 @@ utils.setup_page()
 st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
 
 # 4. Countdown Timer (JavaScript Implementation)
-# Target: January 23, 2026 at 10:00:00
 target_date = "Jan 23, 2026 10:00:00"
 
 st.components.v1.html(
@@ -23,7 +27,7 @@ st.components.v1.html(
         <div id="countdown" style="font-size: 2.5rem; font-weight: bold; color: #d32f2f;">
             Loading...
         </div>
-        </div>
+    </div>
 
     <script>
     var countDownDate = new Date("{target_date}").getTime();
@@ -48,17 +52,34 @@ st.components.v1.html(
     }}, 1000);
     </script>
     """,
-    height=120 # Reduced height slightly since text was removed
+    height=120
 )
 
+# 5. Image Section
+current_dir = os.path.dirname(os.path.abspath(__file__))
+image_path = None
+for ext in ['jpg', 'png', 'jpeg']:
+    temp_path = os.path.join(current_dir, f'background.{ext}')
+    if os.path.exists(temp_path):
+        image_path = temp_path
+        break
+
+if image_path:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image(image_path, caption='', width=600)
+
 # 6. Version & Footer
-st.markdown("""
-<div style='text-align: center; margin-top: 30px; margin-bottom: 15px;'>
+st.markdown(f"""
+<div style='text-align: center; margin-top: 30px; margin-bottom: 10px;'>
     <span style='background-color: #2196F3; color: white; padding: 6px 12px; border-radius: 15px; font-size: 0.9rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);'>
-        v3.1
+        {VERSION}  
     </span>
 </div>
-<div style='text-align: center; color: gray; margin-top: 10px; font-style: italic;'>
+<div style='text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 20px;'>
+    Last Updated: <b>{LAST_UPDATE}</b>
+</div>
+<div style='text-align: center; color: gray; font-style: italic; font-size: 0.8rem;'>
     Made in collaboration with my good friend
 </div>
 """, unsafe_allow_html=True)
