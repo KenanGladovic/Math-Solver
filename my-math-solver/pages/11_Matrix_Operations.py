@@ -1,83 +1,109 @@
 import streamlit as st
 import sympy as sp
 import utils
+
 st.set_page_config(layout="wide")
 utils.setup_page()
 st.markdown("<h1 class='main-header'>Matrix Operations</h1>", unsafe_allow_html=True)
 
 # Operation Selector
-op = utils.p_selectbox("Operation", ["Determinant", "Inverse", "Transpose", "Matrix Multiplication"], "mat_op")
+op = utils.p_selectbox("Operation", ["Determinant", "Inverse", "Transpose", "Multiply", "Row Reduction (Steps)"], "mat_op")
 
-# --- 1. UNARY OPERATIONS (Determinant, Inverse, Transpose) ---
-if op in ["Determinant", "Inverse", "Transpose"]:
-    st.subheader(f"Matrix A Setup for {op}")
+# --- ROW REDUCTION STEPPER ---
+def get_rref_steps(M):
+    """Performs Gaussian elimination on [M | I] to find inverse steps."""
+    rows = M.rows
+    cols = M.cols
+    # Augment with Identity for inverse tracking
+    aug = M.row_join(sp.eye(rows))
+    steps = []
     
-    # Callback to update default text based on template selection
-    # In multipage, we handle this slightly differently with key management, 
-    # but to match original logic we check session state manually.
-    template = st.selectbox(
-        "Select Matrix Template Size:", 
-        ["2x2", "3x3", "4x4"], 
-        key="mat_template_sel"
-    )
-    
-    default_a = "[[2, 1], [1, 2]]"
-    if "3x3" in template: default_a = "[[1, 0, -1], [-2, 2, -1], [1, -1, 1]]"
-    elif template == "4x4": default_a = "[[1, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 4]]"
+    # Simple Gaussian Elimination (Forward only for simplicity in demo)
+    pivot_row = 0
+    for col in range(cols):
+        if pivot_row >= rows: break
+        
+        # Find pivot
+        if aug[pivot_row, col] == 0:
+            swap_idx = -1
+            for r in range(pivot_row + 1, rows):
+                if aug[r, col] != 0:
+                    swap_idx = r
+                    break
+            if swap_idx != -1:
+                aug.row_swap(pivot_row, swap_idx)
+                steps.append((f"Swap R{pivot_row+1} <-> R{swap_idx+1}", aug.copy()))
+        
+        pivot = aug[pivot_row, col]
+        if pivot != 0:
+            # Normalize pivot row
+            if pivot != 1:
+                aug.row_op(pivot_row, lambda v, j: v / pivot)
+                steps.append((f"R{pivot_row+1} / {sp.latex(pivot)}", aug.copy()))
+            
+            # Eliminate others
+            for r in range(rows):
+                if r != pivot_row and aug[r, col] != 0:
+                    factor = aug[r, col]
+                    aug.row_op(r, lambda v, j: v - factor * aug[pivot_row, j])
+                    steps.append((f"R{r+1} - ({sp.latex(factor)})R{pivot_row+1}", aug.copy()))
+            
+            pivot_row += 1
+            
+    return steps, aug[:, cols:]
 
-    st.write("Input Matrix (Python list of lists format)")
-    mat_input = st.text_area("Matrix A:", value=default_a, height=150)
+# --- UI HANDLER ---
+if op in ["Determinant", "Inverse", "Transpose", "Row Reduction (Steps)"]:
+    st.subheader(f"Matrix Setup")
+    default_a = "[[1, 2], [3, 4]]"
+    mat_input = st.text_area("Input Matrix A:", value=default_a, height=100)
     
     if st.button("Calculate", type="primary"):
         try:
-            mat_list = eval(mat_input, {'__builtins__': None}, locals())
+            mat_list = eval(mat_input)
             A = sp.Matrix(mat_list)
             
-            st.subheader("Input")
-            st.latex(f"A = {sp.latex(A)}")
+            st.write("Input A:")
+            st.latex(sp.latex(A))
             
-            st.subheader("Result")
             if op == "Determinant":
-                det = A.det()
-                st.latex(f"\\det(A) = {sp.latex(det)}")
-            elif op == "Inverse":
-                if A.rows != A.cols:
-                    st.error("Matrix must be square to calculate the inverse.")
-                elif A.det() == 0:
-                    st.error("Matrix is singular (Determinant is 0), cannot invert.")
-                else:
-                    inv = A.inv()
-                    st.latex(f"A^{{-1}} = {sp.latex(inv)}")
+                st.latex(f"\\det(A) = {sp.latex(A.det())}")
+            
             elif op == "Transpose":
-                trans = A.transpose()
-                st.latex(f"A^{{T}} = {sp.latex(trans)}")
-                    
-        except Exception as e:
-            st.error(f"Error parsing matrix: {e}")
-
-# --- 2. BINARY OPERATIONS (Matrix Multiplication) ---
-elif op == "Matrix Multiplication":
-    st.subheader("Matrix A (m x n) $\\cdot$ Matrix B (n x r)")
-    st.caption("Reference: **Section 3.3** (Matrix Multiplication)")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        mat_a_str = utils.p_text_area("Matrix A:", "mat_mul_a", "[[1, 2], [3, 4]]", height=150)
-    with col2:
-        mat_b_str = utils.p_text_area("Matrix B:", "mat_mul_b", "[[1, 0], [0, 1]]", height=150)
-        
-    if st.button("Multiply A $\\cdot$ B", type="primary"):
-        try:
-            A = sp.Matrix(eval(mat_a_str, {'__builtins__': None}, locals()))
-            B = sp.Matrix(eval(mat_b_str, {'__builtins__': None}, locals()))
-            
-            if A.cols != B.rows:
-                st.error(f"Dimension Mismatch: A has {A.cols} cols, B has {B.rows} rows.")
-                st.stop()
+                st.latex(f"A^T = {sp.latex(A.T)}")
                 
-            res = A * B
-            st.subheader("Result")
-            st.latex(f"{sp.latex(A)} \\cdot {sp.latex(B)} = {sp.latex(res)}")
+            elif op == "Inverse":
+                if A.det() == 0:
+                    st.error("Matrix is Singular (No Inverse)")
+                else:
+                    st.latex(f"A^{{-1}} = {sp.latex(A.inv())}")
             
+            elif op == "Row Reduction (Steps)":
+                if A.rows != A.cols:
+                    st.warning("Standard inverse steps require a square matrix. Showing RREF on input.")
+                    
+                st.subheader("Gaussian Elimination Steps [A | I] -> [I | A^-1]")
+                steps, res = get_rref_steps(A)
+                
+                for desc, mat in steps:
+                    c1, c2 = st.columns([1, 3])
+                    c1.write(f"**{desc}**")
+                    c2.latex(sp.latex(mat))
+                
+                st.success("Resulting Inverse (Right side of bar):")
+                st.latex(sp.latex(res))
+
         except Exception as e:
             st.error(f"Error: {e}")
+
+elif op == "Multiply":
+    c1, c2 = st.columns(2)
+    with c1:
+        a_str = st.text_area("Matrix A", "[[1,2],[3,4]]")
+    with c2:
+        b_str = st.text_area("Matrix B", "[[1,0],[0,1]]")
+        
+    if st.button("Multiply"):
+        A = sp.Matrix(eval(a_str))
+        B = sp.Matrix(eval(b_str))
+        st.latex(f"{sp.latex(A)} \\cdot {sp.latex(B)} = {sp.latex(A*B)}")

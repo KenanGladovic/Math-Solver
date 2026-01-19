@@ -1,6 +1,6 @@
 # Kenan's IMO Math Calculator
 
-A powerful, offline mathematical toolkit built with Python and Streamlit. This application provides step-by-step solutions for advanced optimization, linear algebra, and calculus problems based on the IMO curriculum.
+A offline mathematical toolkit built with Python and Streamlit. This application provides step-by-step solutions for advanced optimization, linear algebra, and calculus problems based on the IMO curriculum.
 
 ## 🚀 Features
 
@@ -27,18 +27,3 @@ This application includes the following tools (located in the sidebar):
 
 ## 🛠️ Installation & Setup
 
-You only need to do this once.
-
-### 1. Install Python
-Download Python from [python.org](https://www.python.org/downloads/).
-> **IMPORTANT:** When installing, check the box **"Add Python to PATH"** at the bottom of the installer window.
-
-### 2. Install Libraries
-Open a terminal (Command Prompt) in this folder and run:
-```bash
-pip install streamlit sympy numpy pandas matplotlib scipy plotly
-
-
-### How to run manually
-Run this command in a terminal:
-python -m streamlit run Home.py

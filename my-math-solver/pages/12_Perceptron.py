@@ -13,6 +13,7 @@ st.info("""
 **Curriculum Reference: Section 5.3.2**
 This algorithm finds a linear boundary (hyperplane) that separates data points into two classes (+1 and -1).
 It works by iteratively updating a normal vector $\\alpha$ until all points satisfy $\\alpha \\cdot \\hat{v}_i > 0$.
+**Note:** If data is not linearly separable, this algorithm will loop forever. Use the 'Max Iterations' slider to force a stop.
 """)
 
 col1, col2 = st.columns([1, 1])
@@ -37,25 +38,22 @@ with col1:
     else:
         new_data = "1, 2, 1\n2, 1, -1"
 
-    # --- STATE SYNC LOGIC (The Fix) ---
-    # We track the 'last used preset' to detect changes
+    # --- STATE SYNC LOGIC ---
     if "perc_last_preset" not in st.session_state:
         st.session_state["perc_last_preset"] = preset
 
-    # If the user switched the dropdown...
     if st.session_state["perc_last_preset"] != preset:
-        # 1. Update the persistent state for the text area
         st.session_state["perc_data"] = new_data
-        # 2. Update the internal widget state (forces the UI to refresh)
         st.session_state["w_perc_data"] = new_data
-        # 3. Update tracker
         st.session_state["perc_last_preset"] = preset
-        # 4. Rerun to show changes immediately
         st.rerun()
     # ----------------------------------
 
     data_input = utils.p_text_area("Points $(x, y, label)$:", "perc_data", new_data, height=150)
     st.caption("Format: `x, y, label` per line. Label must be `1` or `-1`.")
+    
+    # Safety Slider
+    max_iter = st.slider("Max Iterations (Safety Stop):", 100, 20000, 1000, help="Prevents infinite loops if data is not separable.")
 
 with col2:
     st.subheader("2. Theory & Transformation")
@@ -89,7 +87,6 @@ if st.button("Run Perceptron", type="primary"):
         
         # Perceptron Algorithm
         alpha = np.zeros(3) 
-        max_iter = 1000
         history = []
         converged = False
         
@@ -102,6 +99,8 @@ if st.button("Run Perceptron", type="primary"):
         
         log_container = st.expander("Show Iteration Log", expanded=False)
         with log_container:
+            progress_bar = st.progress(0)
+            
             for k in range(max_iter):
                 misclassified = None
                 mis_idx = -1
@@ -120,11 +119,18 @@ if st.button("Run Perceptron", type="primary"):
                 alpha = alpha + misclassified
                 history.append(alpha.copy())
                 
-                st.write(f"**Step {k+1}:** Misclassified point {mis_idx+1} ({raw_points[mis_idx]}).")
-                st.latex(r"\alpha \leftarrow " + f"{np.round(old_alpha, 2)} + {np.round(misclassified, 2)} = {np.round(alpha, 2)}")
+                # Only log first 20 and last few to save memory/rendering time
+                if k < 20 or k % 100 == 0:
+                    st.write(f"**Step {k+1}:** Misclassified point {mis_idx+1} ({raw_points[mis_idx]}).")
+                    st.latex(r"\alpha \leftarrow " + f"{np.round(old_alpha, 2)} + {np.round(misclassified, 2)} = {np.round(alpha, 2)}")
+                
+                if k % 100 == 0:
+                    progress_bar.progress(min(k / max_iter, 1.0))
+            
+            progress_bar.empty()
 
         if converged:
-            st.success(f"**Converged in {len(history)} steps!**")
+            st.success(f"**Converged in {len(history)} steps!**") 
             a, b, c = alpha
             st.markdown(f"**Final Normal Vector:** $\\alpha = ({a:.2f}, {b:.2f}, {c:.2f})$")
             st.markdown(f"**Separating Line Equation:** ${a:.2f}x + {b:.2f}y + {c:.2f} = 0$")
@@ -168,8 +174,18 @@ if st.button("Run Perceptron", type="primary"):
             st.pyplot(fig)
             
         else:
-            st.error("Algorithm did not converge within 1000 steps.")
-            st.warning("The data might not be linearly separable (e.g. XOR problem).")
+            st.error(f"**Algorithm Stopped:** Did not converge within {max_iter} iterations.")
+            st.warning("Conclusion: The data is likely **NOT** linearly separable (e.g. XOR problem).")
+            
+            # Plot points anyway to show why
+            fig, ax = plt.subplots(figsize=(8, 6))
+            xs = [p[0] for p in raw_points]
+            ys = [p[1] for p in raw_points]
+            labels = [p[2] for p in raw_points]
+            colors = ['blue' if l == 1 else 'red' for l in labels]
+            ax.scatter(xs, ys, c=colors, s=100, edgecolors='k', zorder=5)
+            ax.set_title("Data Points (Non-Separable)")
+            st.pyplot(fig)
             
     except Exception as e:
         st.error(f"Error: {e}")
