@@ -3,240 +3,212 @@ import sympy as sp
 import pandas as pd
 import utils
 
-# 1. Setup
-st.set_page_config(layout="wide", page_icon="✍️")
+# --- PAGE CONFIGURATION ---
+st.set_page_config(layout="wide", page_title="LaTeX Exam Generator", page_icon="📝")
 utils.setup_page()
-st.markdown("<h1 class='main-header'>LaTeX Generator</h1>", unsafe_allow_html=True)
 
-st.info("Generate professional math code for your exam paper without typing all the backslashes manually.")
+# --- PROFESSIONAL CSS ---
+st.markdown("""
+    <style>
+        .main-header { font-size: 2.2rem; color: #2C3E50; margin-bottom: 0.5rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+        .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f0f2f6; border-radius: 5px; }
+        .stTabs [aria-selected="true"] { background-color: #e3f2fd; border-bottom: 2px solid #2196F3; }
+        code { color: #d63384; }
+    </style>
+""", unsafe_allow_html=True)
 
-# Generator Mode Selector
-mode = st.radio(
-    "What do you want to create?", 
-    [
-        "Python Math -> LaTeX", 
-        "Matrix / Vector", 
-        "Cases / Systems", 
-        "Optimization Problem",
-        "∫ Calculus / Sums", 
-        "Logic & Set Theory",    # NEW!
-        "Table Generator"
-    ],
-    horizontal=True
-)
+st.markdown("<h1 class='main-header'>LaTeX Exam Generator</h1>", unsafe_allow_html=True)
+st.caption("Generate LaTeX code for your exam.")
 
-st.markdown("---")
+# --- NAVIGATION ---
+tabs = st.tabs([
+    "Expression Converter", 
+    "Matrices & Vectors", 
+    "Optimization & Systems", 
+    "Calculus & Sums",       # Restored Feature
+    "Convexity (Grad/Hess)", # Exam Power Tool
+    "Sets & Topology",
+    "Tables"
+])
 
 # ==========================================
-# MODE 1: PYTHON EXPRESSION
+# TAB 1: EXPRESSION CONVERTER
 # ==========================================
-if mode == "Python Math -> LaTeX":
+with tabs[0]:
     col1, col2 = st.columns([1, 1])
     with col1:
         st.subheader("Input")
         math_input = utils.p_text_area(
             "Python Expression:", 
             "latex_gen_expr", 
-            "1/2 * x**2 + sqrt(y)"
+            "1/2 * (x - 1)**2 + sqrt(y)"
         )
-        st.caption("Example: `(x+y)**2` becomes $(x+y)^2$")
+        st.caption("Common syntax: `x**2` for $x^2$, `sqrt(x)` for $\\sqrt{x}$, `sum(i, 1, n)`.")
 
     with col2:
         st.subheader("Output")
         expr = utils.parse_expr(math_input)
         if expr:
             latex_code = sp.latex(expr)
-            # Wrap in $$
             final_output = f"$$ {latex_code} $$"
-            
             st.markdown(f"**Preview:** {final_output}")
             st.code(final_output, language="latex")
         else:
-            st.warning("Waiting for valid input...")
+            st.info("Waiting for valid input...")
 
 # ==========================================
-# MODE 2: MATRIX / VECTOR
+# TAB 2: MATRICES & VECTORS
 # ==========================================
-elif mode == "Matrix / Vector":
+with tabs[1]:
     col1, col2 = st.columns([1, 1])
-    
     with col1:
-        st.subheader("Matrix Setup")
-        
+        st.subheader("Configuration")
         mat_type = st.selectbox(
-            "Type:", 
-            ["Matrix (2x2)", "Matrix (3x3)", "Column Vector (2D)", "Column Vector (3D)", "Custom"],
-            key="mat_gen_type"
+            "Template:", 
+            ["Matrix (2x2)", "Matrix (3x3)", "Vector (2D)", "Vector (3D)", "Custom"],
+            key="mat_type_select"
         )
         
-        if mat_type == "Custom":
-            new_default = "1, 2\n3, 4"
-        elif "2x2" in mat_type:
-            new_default = "1, t\nt, 1"
-        elif "3x3" in mat_type:
-            new_default = "1, 0, -1\n-2, 2, -1\n1, -1, 1"
-        elif "2D" in mat_type:
-            new_default = "x\ny"
-        else:
-            new_default = "x\ny\nz"
+        # Smart Defaults
+        if mat_type == "Custom": default_mat = "1, 2\n3, 4"
+        elif "2x2" in mat_type: default_mat = "1, t\nt, 2"
+        elif "3x3" in mat_type: default_mat = "2, -1, 0\n-1, 2, -1\n0, -1, 2"
+        elif "2D" in mat_type: default_mat = "x\ny"
+        else: default_mat = "x\ny\nz"
 
-        if "last_mat_type" not in st.session_state:
-            st.session_state["last_mat_type"] = mat_type
-            
+        if "last_mat_type" not in st.session_state: st.session_state["last_mat_type"] = mat_type
         if st.session_state["last_mat_type"] != mat_type:
-            st.session_state["latex_mat_input"] = new_default
-            st.session_state["w_latex_mat_input"] = new_default
+            st.session_state["latex_mat_input"] = default_mat
+            st.session_state["w_latex_mat_input"] = default_mat
             st.session_state["last_mat_type"] = mat_type
             st.rerun()
 
-        st.write("Enter values (comma separated columns, new line for rows):")
-        raw_mat = utils.p_text_area("Values:", "latex_mat_input", new_default, height=150)
+        raw_mat = utils.p_text_area("Matrix Data (comma separated columns):", "latex_mat_input", default_mat, height=150)
+        env_type = st.radio("Brackets:", ["pmatrix ( )", "bmatrix [ ]", "vmatrix | |"], horizontal=True)
+        env = env_type.split()[0]
 
     with col2:
-        st.subheader("Output")
-        if st.button("Generate LaTeX Matrix", type="primary"):
+        st.subheader("Generated LaTeX")
+        if st.button("Generate Matrix", type="primary"):
             try:
-                matrix_rows = []
+                rows = []
                 for line in raw_mat.split('\n'):
                     if line.strip():
-                        row_cells = []
+                        cells = []
                         for item in line.split(','):
-                            clean_item = item.strip()
-                            parsed = utils.parse_expr(clean_item)
-                            row_cells.append(sp.latex(parsed) if parsed else clean_item)
-                        matrix_rows.append(" & ".join(row_cells))
+                            clean = item.strip()
+                            parsed = utils.parse_expr(clean)
+                            cells.append(sp.latex(parsed) if parsed else clean)
+                        rows.append(" & ".join(cells))
                 
-                body = " \\\\\n".join(matrix_rows)
-                env = "pmatrix" # Parentheses matrix
-                
-                # Wrapped in $$
-                latex_out = f"$$ \\begin{{{env}}}\n{body}\n\\end{{{env}}} $$"
+                body = " \\\\\n".join(rows)
+                code = f"$$ \\begin{{{env}}}\n{body}\n\\end{{{env}}} $$"
                 
                 st.markdown("**Preview:**")
-                st.latex(latex_out.replace("$$", "")) # Streamlit latex() doesn't need $$ to render
+                st.latex(code.replace("$$", ""))
                 st.markdown("**Code:**")
-                st.code(latex_out, language="latex")
-                
+                st.code(code, language="latex")
             except Exception as e:
-                st.error(f"Error parsing matrix: {e}")
+                st.error(f"Parsing Error: {e}")
 
 # ==========================================
-# MODE 3: CASES / SYSTEMS
+# TAB 3: OPTIMIZATION & SYSTEMS
 # ==========================================
-elif mode == "Cases / Systems":
+with tabs[2]:
+    type_select = st.radio("Format:", ["Optimization Problem", "System of Equations / KKT"], horizontal=True)
+    
     col1, col2 = st.columns([1, 1])
-    with col1:
-        st.subheader("Equations")
-        default_sys = "2*x + y = 1\nx + 2*y = t"
-        eq_input = utils.p_text_area("One equation per line:", "latex_sys_input", default_sys)
-        style = st.radio("Style:", ["Aligned System", "Cases (curly brace)"])
-
-    with col2:
-        st.subheader("Output")
-        lines = [l.strip() for l in eq_input.split('\n') if l.strip()]
-        latex_lines = []
-        for l in lines:
-            if "=" in l:
-                lhs, rhs = l.split("=")
-                l_tex = sp.latex(utils.parse_expr(lhs))
-                r_tex = sp.latex(utils.parse_expr(rhs))
-                latex_lines.append(f"{l_tex} &= {r_tex}")
-            else:
-                latex_lines.append(sp.latex(utils.parse_expr(l)))
-        
-        # Wrapped in $$
-        if style == "Aligned System":
-            # Switched to 'aligned' so it works inside $$
-            final_tex = "$$ \\begin{aligned}\n" + " \\\\\n".join(latex_lines) + "\n\\end{aligned} $$"
-        else:
-            final_tex = "$$ \\begin{cases}\n" + " \\\\\n".join(latex_lines) + "\n\\end{cases} $$"
+    
+    if type_select == "Optimization Problem":
+        with col1:
+            st.subheader("Problem Setup")
+            op_dir = st.selectbox("Direction:", ["Minimize", "Maximize"])
+            func = utils.p_text_input("Objective Function:", "opt_func", "(x+y)^2")
+            consts = utils.p_text_area("Constraints (one per line):", "opt_const", "x^2 + y^2 <= 1\nx >= 0")
+        with col2:
+            st.subheader("Output")
+            f_expr = utils.parse_expr(func)
+            f_tex = sp.latex(f_expr) if f_expr else func
             
-        st.latex(final_tex.replace("$$", ""))
-        st.code(final_tex, language="latex")
+            c_lines = []
+            for c in consts.split('\n'):
+                if c.strip():
+                    c_tex = c.strip().replace("<=", "\\le").replace(">=", "\\ge").replace("lambda", "\\lambda")
+                    c_lines.append(c_tex)
+            
+            c_block = " \\\\\n".join([f"& {c}" for c in c_lines])
+            
+            final_tex = f"$$ \\begin{{aligned}}\n\\text{{{op_dir} }} & {f_tex} \\\\\n\\text{{subject to }} {c_block}\n\\end{{aligned}} $$"
+            st.latex(final_tex.replace("$$", ""))
+            st.code(final_tex, language="latex")
+            
+    else: 
+        with col1:
+            st.subheader("Equations")
+            eqs = utils.p_text_area("Equations (one per line):", "sys_eqs", "\\nabla L = 0\n\\lambda_i >= 0\n\\lambda_i g_i(x) = 0")
+            style = st.selectbox("Style:", ["Aligned", "Cases (curly brace)"])
+        with col2:
+            st.subheader("Output")
+            lines = [l.strip().replace(">=", "\\ge").replace("<=", "\\le") for l in eqs.split('\n') if l.strip()]
+            tex_lines = []
+            for l in lines:
+                if "=" in l and style == "Aligned":
+                    lhs, rhs = l.split("=", 1)
+                    tex_lines.append(f"{lhs.strip()} &= {rhs.strip()}")
+                else:
+                    tex_lines.append(l)
+            
+            env = "aligned" if style == "Aligned" else "cases"
+            body = " \\\\\n".join(tex_lines)
+            final_tex = f"$$ \\begin{{{env}}}\n{body}\n\\end{{{env}}} $$"
+            st.latex(final_tex.replace("$$", ""))
+            st.code(final_tex, language="latex")
 
 # ==========================================
-# MODE 4: OPTIMIZATION PROBLEM
+# TAB 4: CALCULUS & SUMS
 # ==========================================
-elif mode == "Optimization Problem":
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.subheader("Problem Setup")
-        op_type = st.selectbox("Type", ["Minimize", "Maximize"])
-        func = utils.p_text_input("Objective Function:", "latex_opt_func", "(x+y)**2 - x")
-        consts = utils.p_text_area("Constraints:", "latex_opt_const", "x**2 + y**2 <= 4\nx + y >= 1")
-
-    with col2:
-        st.subheader("Output")
-        f_tex = sp.latex(utils.parse_expr(func))
-        const_lines = []
-        for c in consts.split('\n'):
-            if c.strip():
-                # Simple replacement for inequalities
-                c_tex = c.replace("<=", "\\le").replace(">=", "\\ge").replace("**", "^").replace("*", "")
-                const_lines.append(c_tex)
-        
-        c_block = " \\\\\n".join([f"& {c}" for c in const_lines])
-        
-        # Wrapped in $$
-        final_tex = (
-            f"$$ \\begin{{aligned}}\n"
-            f"\\text{{{op_type} }} & {f_tex} \\\\\n"
-            f"\\text{{subject to }} {c_block}\n"
-            f"\\end{{aligned}} $$"
-        )
-        st.latex(final_tex.replace("$$", ""))
-        st.code(final_tex, language="latex")
-
-# ==========================================
-# MODE 5: CALCULUS / SUMS
-# ==========================================
-elif mode == "∫ Calculus / Sums":
+with tabs[3]:
+    st.markdown("### Calculus & Series")
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("Operator Setup")
         op_type = st.selectbox("Operator:", ["Summation (∑)", "Integral (∫)", "Limit (lim)", "Derivative (d/dx)"])
+        func_str = utils.p_text_input("Expression:", "calc_gen_func", "f(x_i)")
         
-        func_str = utils.p_text_input("Expression (e.g. x**2):", "calc_gen_func", "f(x,y)")
+        c_p1, c_p2, c_p3 = st.columns(3)
         
-        if op_type == "Derivative (d/dx)":
-            var_str = utils.p_text_input("Variable:", "calc_gen_var", "x")
-            order = st.number_input("Order:", 1, 5, 1)
-            is_partial = st.checkbox("Partial Derivative (∂)", value=False)
+        if "Derivative" in op_type:
+            var_str = c_p1.text_input("Variable:", "x")
+            order = c_p2.number_input("Order:", 1, 5, 1)
+            is_partial = c_p3.checkbox("Partial (∂)", value=False)
             lim_from, lim_to = None, None
         else:
-            c1, c2, c3 = st.columns(3)
-            var_str = c1.text_input("Variable:", "i" if "Sum" in op_type else "x")
-            lim_from = c2.text_input("From / Point:", "1" if "Sum" in op_type else "0")
-            lim_to = c3.text_input("To (Optional):", "n" if "Sum" in op_type else "inf")
-            is_partial = False
+            var_str = c_p1.text_input("Index/Var:", "i" if "Sum" in op_type else "x")
+            lim_from = c_p2.text_input("From / Point:", "1" if "Sum" in op_type else "0")
+            lim_to = c_p3.text_input("To (Optional):", "n" if "Sum" in op_type else "\\infty")
 
     with col2:
         st.subheader("Output")
-        if st.button("Generate Math", type="primary"):
+        if st.button("Generate Calculus LaTeX", type="primary"):
             try:
-                parsed_expr = utils.parse_expr(func_str)
-                f_tex = sp.latex(parsed_expr) if parsed_expr else func_str
+                # Parse expression safely
+                parsed = utils.parse_expr(func_str)
+                f_tex = sp.latex(parsed) if parsed else func_str
                 
-                if op_type == "Summation (∑)":
+                if "Sum" in op_type:
                     inner_tex = f"\\sum_{{{var_str}={lim_from}}}^{{{lim_to}}} {f_tex}"
-                
-                elif op_type == "Integral (∫)":
+                elif "Integral" in op_type:
                     bounds = f"_{{{lim_from}}}^{{{lim_to}}}" if lim_to else f"_{{{lim_from}}}"
-                    if not lim_from and not lim_to: bounds = ""
                     inner_tex = f"\\int{bounds} {f_tex} \\, d{var_str}"
-                    
-                elif op_type == "Limit (lim)":
+                elif "Limit" in op_type:
                     inner_tex = f"\\lim_{{{var_str} \\to {lim_from}}} {f_tex}"
-                    
-                elif op_type == "Derivative (d/dx)":
+                elif "Derivative" in op_type:
                     d_sym = "\\partial" if is_partial else "d"
-                    d_part = f"^{order}" if order > 1 else ""
-                    inner_tex = f"\\frac{{{d_sym}{d_part}}}{{{d_sym}{var_str}{d_part}}} \\left( {f_tex} \\right)"
+                    d_ord = f"^{order}" if order > 1 else ""
+                    inner_tex = f"\\frac{{{d_sym}{d_ord}}}{{{d_sym}{var_str}{d_ord}}} \\left( {f_tex} \\right)"
                 
-                # Wrapped in $$
                 final_tex = f"$$ {inner_tex} $$"
-
                 st.markdown(f"**Preview:** {final_tex}")
                 st.code(final_tex, language="latex")
                 
@@ -244,122 +216,189 @@ elif mode == "∫ Calculus / Sums":
                 st.error(f"Error: {e}")
 
 # ==========================================
-# MODE 6: LOGIC & SET THEORY
+# TAB 5: CONVEXITY (GRADIENT & HESSIAN)
 # ==========================================
-elif mode == "Logic & Set Theory":
+with tabs[4]:
+    st.markdown("### Convexity Tools")
+    st.write("Calculates $\\nabla f$ (Gradient) and $\\nabla^2 f$ (Hessian Matrix) instantly.")
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("Logic Builder")
-        st.caption("Construct set definitions like: $\{ x \in \mathbb{R} \mid x > 0 \}$")
+        func_str_c = utils.p_text_input("Function $f(x,y,...)$:", "calc_f", "x**2 + y**2 + 2*x*y")
+        vars_str_c = utils.p_text_input("Variables (comma sep):", "calc_vars", "x, y")
         
-        l_var = st.text_input("Variable(s):", "x")
+    with col2:
+        if st.button("Calculate Derivatives", type="primary"):
+            try:
+                f_expr = utils.parse_expr(func_str_c)
+                v_list = [utils.parse_expr(v.strip()) for v in vars_str_c.split(',')]
+                
+                if f_expr and v_list:
+                    # Gradient
+                    grad = [sp.diff(f_expr, v) for v in v_list]
+                    grad_tex = "\\\\ ".join([sp.latex(g) for g in grad])
+                    grad_out = f"\\nabla f = \\begin{{pmatrix}} {grad_tex} \\end{{pmatrix}}"
+                    
+                    # Hessian
+                    hess_rows = []
+                    for v1 in v_list:
+                        row = [sp.latex(sp.diff(f_expr, v1, v2)) for v2 in v_list]
+                        hess_rows.append(" & ".join(row))
+                    hess_out = f"\\nabla^2 f = \\begin{{pmatrix}} {' \\\\\\\\ '.join(hess_rows)} \\end{{pmatrix}}"
+                    
+                    st.markdown("**Gradient:**")
+                    st.latex(grad_out)
+                    st.code(f"$$ {grad_out} $$", language="latex")
+                    
+                    st.markdown("**Hessian:**")
+                    st.latex(hess_out)
+                    st.code(f"$$ {hess_out} $$", language="latex")
+                else:
+                    st.error("Invalid input.")
+            except Exception as e:
+                st.error(f"Calculation Error: {e}")
+
+# ==========================================
+# TAB 6: SETS & TOPOLOGY
+# ==========================================
+with tabs[5]:
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.subheader("Set Definition")
         
-        st.write("Sets:")
-        c_sets = st.columns(4)
-        set_choice = "S" 
-        if c_sets[0].button("ℝ (Real)"): set_choice = "\\mathbb{R}"
-        if c_sets[1].button("ℕ (Nat)"): set_choice = "\\mathbb{N}"
-        if c_sets[2].button("ℤ (Int)"): set_choice = "\\mathbb{Z}"
-        if c_sets[3].button("ℚ (Rat)"): set_choice = "\\mathbb{Q}"
+        st.write("Insert Topology Symbols:")
+        c_syms = st.columns(4)
+        if c_syms[0].button("ℝⁿ"): st.session_state["w_set_dom"] = "\\mathbb{R}^n"
+        if c_syms[1].button("∂C"): st.session_state["w_set_dom"] = "\\partial C"
+        if c_syms[2].button("C°"): st.session_state["w_set_dom"] = "C^{\\circ}"
+        if c_syms[3].button("∅"): st.session_state["w_set_dom"] = "\\emptyset"
         
-        l_set = st.text_input("Element of Set:", set_choice)
-        l_cond = st.text_input("Condition (Predicate):", "x^2 > 0")
-        
-        quantifier = st.radio("Quantifier:", ["None", "For all (∀)", "Exists (∃)"], horizontal=True)
+        domain = utils.p_text_input("Domain / Set:", "set_dom", "\\mathbb{R}^2")
+        cond = utils.p_text_input("Condition:", "set_cond", "x^2 + y^2 \\le 1")
+        fmt = st.radio("Notation:", ["Set Builder { | }", "Quantifier (∀)", "Quantifier (∃)"], horizontal=True)
+        var = utils.p_text_input("Variable:", "set_var", "x")
 
     with col2:
         st.subheader("Output")
-        
-        if quantifier == "For all (∀)":
-            inner_tex = f"\\forall {l_var} \\in {l_set}: {l_cond}"
-        elif quantifier == "Exists (∃)":
-            inner_tex = f"\\exists {l_var} \\in {l_set}: {l_cond}"
+        if fmt == "Set Builder { | }":
+            res = f"\\{{ {var} \\in {domain} \\mid {cond} \\}}"
+        elif fmt == "Quantifier (∀)":
+            res = f"\\forall {var} \\in {domain}: {cond}"
         else:
-            inner_tex = f"\\{{ {l_var} \\in {l_set} \\mid {l_cond} \\}}"
+            res = f"\\exists {var} \\in {domain}: {cond}"
             
-        # Wrapped in $$
-        final_tex = f"$$ {inner_tex} $$"
-            
-        st.markdown(f"**Preview:** {final_tex}")
-        st.code(final_tex, language="latex")
-        
-        st.markdown("### Quick Symbols")
-        st.code("\\in", language="latex")
-        st.code("\\subseteq", language="latex")
-        st.code("\\cup", language="latex")
-        st.code("\\cap", language="latex")
-        st.code("\\setminus", language="latex")
+        st.markdown("**Preview:**")
+        st.latex(res)
+        st.code(f"$$ {res} $$", language="latex")
 
 # ==========================================
-# MODE 7: TABLE GENERATOR
+# TAB 7: TABLES (Professional & Course Tailored)
 # ==========================================
-elif mode == "Table Generator":
+with tabs[6]:
+    st.markdown("### 📊 Exam Table Generator")
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("1. Input Data")
-        st.info("Standard CSV format. Tables should usually NOT be wrapped in $$ $$ as they are floating environments.")
+        st.subheader("1. Configuration")
         
-        default_data = "Iteration, $x_n$, $f(x_n)$\n1, 0.5, 0.25\n2, 0.2, 0.04\n3, 0.1, 0.01"
-        raw_data = utils.p_text_area("Table Data:", "latex_table_input", default_data, height=200)
+        # Template Selection tailored to course content
+        template = st.selectbox(
+            "Load Exam Template:", 
+            ["Empty", "Simplex Tableau (LP)", "Truth Table (Logic)", "Newton/Gradient Iteration"],
+            key="tbl_template"
+        )
         
-        add_header = st.checkbox("First row is a Header (bold + line)", value=True)
-        center_align = st.checkbox("Center Align All Columns", value=True)
+        # Logic to set default data based on template
+        if template == "Simplex Tableau (LP)":
+            def_csv = "Basis, x_1, x_2, s_1, RHS\ns_1, 1, 2, 1, 10\nZ, -3, -5, 0, 0"
+            def_align = "|l|ccc|r|" # Standard Simplex format: Left basis, middle vars, right RHS
+        elif template == "Truth Table (Logic)":
+            def_csv = "P, Q, P \\Rightarrow Q\nT, T, T\nT, F, F\nF, T, T\nF, F, T"
+            def_align = "|c|c|c|"
+        elif template == "Newton/Gradient Iteration":
+            def_csv = "k, x_k, f(x_k), \\nabla f(x_k)\n0, 1.0, 0.5, -2\n1, 0.8, 0.1, 0.1"
+            def_align = "|c|c|c|c|"
+        else:
+            def_csv = "Header 1, Header 2\nVal 1, Val 2"
+            def_align = "|c|c|"
+
+        # State management to prevent wiping data on reload
+        if "last_tpl" not in st.session_state: st.session_state["last_tpl"] = template
+        if st.session_state["last_tpl"] != template:
+            st.session_state["table_csv"] = def_csv
+            st.session_state["w_table_csv"] = def_csv
+            st.session_state["table_align"] = def_align
+            st.session_state["w_table_align"] = def_align
+            st.session_state["last_tpl"] = template
+            st.rerun()
+
+        # Input Area
+        csv_data = utils.p_text_area("Table Data (CSV format):", "table_csv", def_csv, height=150)
+        
+        c_opt1, c_opt2 = st.columns(2)
+        auto_math = c_opt1.checkbox("Auto-Math ($...$)", value=True, help="Automatically wraps cell content in $ signs.")
+        header_row = c_opt2.checkbox("First row is Header", value=True)
+        
+        # Advanced Alignment Editing
+        align_str = utils.p_text_input("LaTeX Alignment String:", "table_align", def_align)
+        st.caption("Tip: Use `|` for vertical lines. Ex: `|l|ccc|r|` puts lines on outsides and splits the first/last columns.")
 
     with col2:
-        st.subheader("3. Visual Preview")
-        rows = [r.split(',') for r in raw_data.split('\n') if r.strip()]
+        st.subheader("2. Preview & Output")
+        
+        rows = [r.split(',') for r in csv_data.split('\n') if r.strip()]
         
         if rows:
             try:
-                clean_rows = [[cell.strip() for cell in row] for row in rows]
-                if add_header:
-                    header = clean_rows[0]
-                    body = clean_rows[1:]
-                    df = pd.DataFrame(body, columns=header)
+                # Cleaning data
+                clean_data = []
+                for row in rows:
+                    clean_row = []
+                    for cell in row:
+                        txt = cell.strip()
+                        # Auto-Math Logic: Wrap if requested and not already wrapped
+                        if auto_math and txt and not txt.startswith("$"):
+                            # Don't wrap standard text headers if user wants to keep them text, 
+                            # but usually in math exams headers are math symbols too.
+                            clean_row.append(f"${txt}$")
+                        else:
+                            clean_row.append(txt)
+                    clean_data.append(clean_row)
+
+                # 1. Visual Preview (Pandas strips $ for readability if we want, but let's show raw)
+                # We create a display version without the $ for the UI table
+                display_data = [[c.replace('$', '') for c in r] for r in clean_data]
+                
+                if header_row and len(display_data) > 0:
+                    st.table(pd.DataFrame(display_data[1:], columns=display_data[0]))
                 else:
-                    df = pd.DataFrame(clean_rows)
-                st.table(df)
-            except Exception as e:
-                st.warning(f"Preview unavailable: {e}")
-        
-        st.markdown("---")
-        
-        if st.button("Generate LaTeX Code", type="primary"):
-            if not rows:
-                st.error("Please enter some data first.")
-            else:
-                num_cols = max(len(r) for r in rows)
-                col_char = "c" if center_align else "l"
-                align_str = "|" + (col_char + "|") * num_cols
+                    st.table(pd.DataFrame(display_data))
+
+                # 2. LaTeX Generation
+                tex_rows = []
+                for i, r in enumerate(clean_data):
+                    line = " & ".join(r) + " \\\\"
+                    # Double horizontal line for header if it's Simplex or standard
+                    if i == 0 and header_row: 
+                        line += " \\hline"
+                    tex_rows.append(line)
                 
-                latex_rows = []
-                for i, row in enumerate(rows):
-                    clean_cells = [x.strip() for x in row]
-                    while len(clean_cells) < num_cols:
-                        clean_cells.append("")
-                    
-                    line_str = " & ".join(clean_cells) + " \\\\"
-                    
-                    if i == 0 and add_header:
-                        line_str += " \\hline"
-                        
-                    latex_rows.append(line_str)
+                body = "\n".join(tex_rows)
                 
-                body_code = "\n".join(latex_rows)
-                
-                # Table Environment (No $$ needed)
-                final_tex = (
+                final_tbl = (
                     f"\\begin{{table}}[h!]\n"
-                    f"\\centering\n"
-                    f"\\begin{{tabular}}{{{align_str}}}\n"
-                    f"\\hline\n"
-                    f"{body_code}\n"
-                    f"\\hline\n"
-                    f"\\end{{tabular}}\n"
+                    f"  \\centering\n"
+                    f"  \\begin{{tabular}}{{{align_str}}}\n"
+                    f"    \\hline\n"
+                    f"    {body}\n"
+                    f"    \\hline\n"
+                    f"  \\end{{tabular}}\n"
                     f"\\end{{table}}"
                 )
                 
-                st.subheader("4. LaTeX Output")
-                st.code(final_tex, language="latex")
+                st.code(final_tbl, language="latex")
+                
+            except Exception as e:
+                st.error(f"Processing Error: {e}")
+        else:
+            st.info("Enter data to generate table.")

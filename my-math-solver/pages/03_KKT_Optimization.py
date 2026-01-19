@@ -7,7 +7,7 @@ import utils
 st.set_page_config(layout="wide")
 utils.setup_page()
 
-st.markdown("<h1 class='main-header'>KKT Computation</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>KKT Computation & Proof Generator</h1>", unsafe_allow_html=True)
 
 # 2. Curriculum Context
 with st.expander("📘 Curriculum References (Chapter 9)", expanded=False):
@@ -23,7 +23,7 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("1. Problem Definition")
-    # Default from Jan 2025 Exam Q1
+    # Default from Jan 2025 Exam Q1 style
     obj_input = utils.p_text_input("Minimize Objective $f(x,y,...)$:", "kkt_master_obj", "(x + y)**2 - x - y")
     
     default_const = "x**2 + y**2 <= 4\n1 - x - y <= 0"
@@ -72,35 +72,57 @@ with col2:
         
         if st.button("Generate KKT Conditions", type="primary"):
             if valid_input and f_expr:
+                latex_report = [] # Store lines for copyable output
                 
+                # Helper to display and log
+                def log_latex(latex_str, label=None):
+                    if label:
+                        st.markdown(label)
+                        latex_report.append(f"% {label}")
+                    st.latex(latex_str)
+                    latex_report.append(f"$$ {latex_str} $$")
+
+                # 1. Problem Statement
                 st.markdown("### 1. Problem Statement")
-                st.write("Minimize:")
+                latex_report.append("\\section*{1. Problem Statement}")
+                latex_report.append(f"Minimize: $$ f = {sp.latex(f_expr)} $$")
                 st.latex(f"f = {sp.latex(f_expr)}")
+                
+                latex_report.append("Subject to constraints ($g_i \\le 0$):")
                 st.write("Subject to constraints ($g_i \le 0$):")
                 for g in parsed_constraints:
-                    st.latex(f"{sp.latex(g)} \\le 0")
+                    log_latex(f"{sp.latex(g)} \\le 0")
                 st.markdown("---")
 
+                # 2. KKT Conditions
                 st.markdown("### 2. The KKT Conditions (Formula 9.24)")
+                latex_report.append("\n\\section*{2. The KKT Conditions (Formula 9.24)}")
                 
                 lambdas = [sp.symbols(f'lambda_{i+1}') for i in range(len(parsed_constraints))]
                 
-                st.markdown("**1. Dual Feasibility** ($\lambda_i \ge 0$)")
+                # Condition 1
+                st.markdown("**1. Multiplier Signs** ($\lambda_i \ge 0$)")
                 if lambdas:
                     lam_tex = ", ".join([sp.latex(l) for l in lambdas])
-                    st.latex(f"{lam_tex} \ge 0")
+                    log_latex(f"{lam_tex} \\ge 0", "Multiplier Signs:")
                 else:
                     st.write("No inequality constraints.")
 
-                st.markdown("**2. Primal Feasibility** ($g_i(v_0) \le 0$)")
+                # Condition 2
+                st.markdown("**2. Constraint Feasibility** ($g_i(v_0) \le 0$)")
+                latex_report.append("\n% Constraint Feasibility")
                 for i, g in enumerate(parsed_constraints):
-                    st.latex(f"{sp.latex(g)} \le 0")
+                    log_latex(f"{sp.latex(g)} \\le 0")
 
-                st.markdown("**3. Complementary Slackness** ($\lambda_i g_i(v_0) = 0$)")
+                # Condition 3
+                st.markdown("**3. Product Condition** ($\lambda_i g_i(v_0) = 0$)")
+                latex_report.append("\n% Product Condition")
                 for i, (lam, g) in enumerate(zip(lambdas, parsed_constraints)):
-                    st.latex(f"\\lambda_{{{i+1}}} ({sp.latex(g)}) = 0")
+                    log_latex(f"\\lambda_{{{i+1}}} ({sp.latex(g)}) = 0")
                 
-                st.markdown("**4. Stationarity** ($\\nabla f(v_0) + \sum \lambda_i \\nabla g_i(v_0) = 0$)")
+                # Condition 4
+                st.markdown("**4. Gradient Equation** ($\\nabla f(v_0) + \sum \lambda_i \\nabla g_i(v_0) = 0$)")
+                latex_report.append("\n% Gradient Equation")
                 
                 L = f_expr
                 for lam, g in zip(lambdas, parsed_constraints):
@@ -108,7 +130,11 @@ with col2:
                 
                 for var in vars_sym:
                     eq = sp.diff(L, var)
-                    st.latex(f"{sp.latex(eq)} = 0 \\quad \\text{{(w.r.t. }} {var.name} \\text{{)}}")
+                    log_latex(f"{sp.latex(eq)} = 0 \\quad \\text{{(w.r.t. }} {var.name} \\text{{)}}")
+
+                # Output Code Block
+                st.markdown("### 📋 Copy LaTeX Code")
+                st.code("\n".join(latex_report), language="latex")
 
             else:
                 st.error("Please fix input errors above first.")
@@ -127,8 +153,13 @@ with col2:
                     if len(vals) != len(vars_sym):
                         st.error(f"Dimension mismatch. Expected {len(vars_sym)} variables ({vars_sym}), got {len(vals)}.")
                     else:
+                        latex_report = []
                         point_map = dict(zip(vars_sym, vals))
-                        st.markdown(f"### Analysis of Point $v_0 = {tuple(vals)}$")
+                        point_tex = tuple(vals)
+                        
+                        st.markdown(f"### Analysis of Point $v_0 = {point_tex}$")
+                        latex_report.append(f"\\section*{{Analysis of Candidate Point $v_0 = {point_tex}$}}")
+                        
                         st.write("We will now insert this point into the KKT conditions.")
                         st.markdown("---")
 
@@ -142,92 +173,108 @@ with col2:
                             g_vals.append(g_val)
                             grad_g_vals.append([float(sp.diff(g, v).subs(point_map)) for v in vars_sym])
 
-                        # --- STEP 1: SOLVE FOR MULTIPLIERS (LAMBDA) ---
-                        # We try to satisfy Stationarity (Cond 4) first to find candidate lambdas.
-                        # Equation: A^T * lambda = -grad_f
-                        # We only consider 'active' constraints (g approx 0) for the solve, 
-                        # but we verify against all.
-                        
-                        # Identify active constraints for the linear solver
+                        # --- STEP 1: SOLVE FOR MULTIPLIERS ---
+                        # We use the Gradient Equation to find lambdas for active constraints
                         active_indices = [i for i, val in enumerate(g_vals) if abs(val) < 1e-4]
                         
-                        # Build matrix A (columns are gradients of active constraints)
                         if active_indices:
                             A_active = np.array([grad_g_vals[i] for i in active_indices]).T
                             b_vec = -np.array(grad_f_vals)
-                            
-                            # Solve least squares
                             lam_active, residuals, _, _ = np.linalg.lstsq(A_active, b_vec, rcond=None)
                         else:
                             lam_active = []
 
-                        # Construct full lambda vector
                         lambdas_calc = [0.0] * len(parsed_constraints)
                         for i, idx in enumerate(active_indices):
                             lambdas_calc[idx] = lam_active[i]
 
-                        st.info(f"**Calculated Multipliers:** We solve the Stationarity equation to find the required $\lambda$ values:\n\n" + 
-                                ", ".join([f"$\lambda_{i+1} = {lam:.4f}$" for i, lam in enumerate(lambdas_calc)]))
+                        # Show the linear system being solved
+                        st.info("**Solving for Multipliers:** Using active constraints to solve $\\nabla f + \sum \lambda_i \\nabla g_i = 0$")
+                        latex_report.append("\\subsection*{1. Calculation of Lagrange Multipliers}")
+                        latex_report.append("Solving the gradient equation for active constraints:")
+                        
+                        eq_sys_tex = []
+                        grad_f_tex = sp.latex(sp.Matrix(grad_f_vals))
+                        grad_sum_tex = []
+                        
+                        for i, val in enumerate(lambdas_calc):
+                            if abs(val) > 1e-5: # Active
+                                grad_g_tex = sp.latex(sp.Matrix(grad_g_vals[i]))
+                                grad_sum_tex.append(f"\\lambda_{{{i+1}}} {grad_g_tex}")
+                        
+                        full_eq = f"{grad_f_tex} + " + " + ".join(grad_sum_tex) + " = 0" if grad_sum_tex else f"{grad_f_tex} = 0"
+                        st.latex(full_eq)
+                        latex_report.append(f"$$ {full_eq} $$")
+
+                        lam_res_str = ", ".join([f"\\lambda_{{{i+1}}} = {lam:.4f}" for i, lam in enumerate(lambdas_calc)])
+                        st.write(f"Result: ${lam_res_str}$")
+                        latex_report.append(f"Result: $$ {lam_res_str} $$")
 
                         st.markdown("---")
 
                         # --- STEP 2: VERIFY ALL CONDITIONS ---
+                        latex_report.append("\\subsection*{2. Verification of Conditions}")
                         
-                        # 1. Dual Feasibility
-                        st.markdown("#### 1. Dual Feasibility Check ($\lambda_i \ge 0$)")
+                        # 1. Multiplier Signs
+                        st.markdown("#### 1. Multiplier Signs Check ($\lambda_i \ge 0$)")
+                        latex_report.append("\\textbf{1. Multiplier Signs} ($\\lambda_i \\ge 0$):")
                         dual_pass = True
                         for i, lam in enumerate(lambdas_calc):
-                            if lam < -1e-5:
-                                st.error(f"❌ $\lambda_{i+1} = {lam:.4f} < 0$. Condition Failed.")
-                                dual_pass = False
-                            else:
-                                st.write(f"✅ $\lambda_{i+1} = {lam:.4f} \ge 0$.")
-                        
-                        if dual_pass: st.success("result: Condition Satisfied.")
-                        else: st.warning("result: Condition Failed.")
+                            check = "\\ge" if lam >= -1e-5 else "<"
+                            msg = f"\\lambda_{{{i+1}}} = {lam:.4f} {check} 0"
+                            st.latex(msg)
+                            latex_report.append(f"$$ {msg} $$")
+                            if lam < -1e-5: dual_pass = False
 
-                        # 2. Primal Feasibility
-                        st.markdown("#### 2. Primal Feasibility Check ($g_i(v_0) \le 0$)")
+                        if dual_pass: st.success("Condition Satisfied.")
+                        else: st.warning("Condition Failed.")
+
+                        # 2. Constraint Feasibility
+                        st.markdown("#### 2. Constraint Feasibility Check ($g_i(v_0) \le 0$)")
+                        latex_report.append("\n\\textbf{2. Constraint Feasibility} ($g_i(v_0) \\le 0$):")
                         primal_pass = True
                         for i, val in enumerate(g_vals):
-                            if val > 1e-5:
-                                st.error(f"❌ $g_{i+1}(v_0) = {val:.4f} > 0$. Constraint Violated.")
-                                primal_pass = False
-                            else:
-                                st.write(f"✅ $g_{i+1}(v_0) = {val:.4f} \le 0$.")
+                            check = "\\le" if val <= 1e-5 else ">"
+                            msg = f"g_{{{i+1}}}(v_0) = {val:.4f} {check} 0"
+                            st.latex(msg)
+                            latex_report.append(f"$$ {msg} $$")
+                            if val > 1e-5: primal_pass = False
                         
-                        if primal_pass: st.success("result: Condition Satisfied.")
-                        else: st.warning("result: Condition Failed.")
+                        if primal_pass: st.success("Condition Satisfied.")
+                        else: st.warning("Condition Failed.")
 
-                        # 3. Complementary Slackness
-                        st.markdown("#### 3. Complementary Slackness Check ($\lambda_i g_i(v_0) = 0$)")
+                        # 3. Product Condition
+                        st.markdown("#### 3. Product Condition Check ($\lambda_i g_i(v_0) = 0$)")
+                        latex_report.append("\n\\textbf{3. Product Condition} ($\\lambda_i g_i(v_0) = 0$):")
                         slack_pass = True
                         for i, (lam, val) in enumerate(zip(lambdas_calc, g_vals)):
                             product = lam * val
-                            if abs(product) > 1e-4:
-                                st.error(f"❌ $\lambda_{i+1} \cdot g_{i+1} = {lam:.4f} \cdot {val:.4f} = {product:.4f} \\ne 0$. Failed.")
-                                slack_pass = False
-                            else:
-                                st.write(f"✅ $\lambda_{i+1} \cdot g_{i+1} \\approx 0$.")
+                            check = "\\approx" if abs(product) < 1e-4 else "\\ne"
+                            msg = f"\\lambda_{{{i+1}}} \\cdot g_{{{i+1}}} = {lam:.4f} \\cdot {val:.4f} = {product:.4f} {check} 0"
+                            st.latex(msg)
+                            latex_report.append(f"$$ {msg} $$")
+                            if abs(product) > 1e-4: slack_pass = False
                         
-                        if slack_pass: st.success("result: Condition Satisfied.")
-                        else: st.warning("result: Condition Failed.")
+                        if slack_pass: st.success("Condition Satisfied.")
+                        else: st.warning("Condition Failed.")
 
-                        # 4. Stationarity
-                        st.markdown("#### 4. Stationarity Check ($\nabla L = 0$)")
-                        # Recalculate gradient sum
+                        # 4. Gradient Equation
+                        st.markdown("#### 4. Gradient Equation Check ($\nabla L = 0$)")
+                        latex_report.append("\n\\textbf{4. Gradient Equation} ($\\nabla L = 0$):")
                         grad_L = np.array(grad_f_vals)
                         for i, lam in enumerate(lambdas_calc):
                             grad_L += lam * np.array(grad_g_vals[i])
                         
                         residual_norm = np.linalg.norm(grad_L)
+                        msg = f"|\\nabla L| = {residual_norm:.4f}"
+                        st.latex(msg)
+                        latex_report.append(f"$$ {msg} $$")
                         
-                        st.write(f"Sum of gradients: $\\nabla f + \sum \lambda_i \\nabla g_i = {np.round(grad_L, 4)}$")
                         if residual_norm < 1e-4:
-                            st.success(f"result: Condition Satisfied (Residual: {residual_norm:.1e}).")
+                            st.success(f"Condition Satisfied.")
                             stat_pass = True
                         else:
-                            st.error(f"result: Condition Failed. The gradients do not cancel out (Residual: {residual_norm:.4f}).")
+                            st.error(f"Condition Failed.")
                             stat_pass = False
 
                         # --- STEP 3: FINAL VERDICT ---
@@ -235,10 +282,18 @@ with col2:
                         st.subheader("Final Verdict")
                         if dual_pass and primal_pass and slack_pass and stat_pass:
                             st.balloons()
-                            st.success(f"**OPTIMAL.** The point {tuple(vals)} satisfies all KKT conditions.")
-                            st.markdown("Since the problem is Convex (check this!) and Strictly Feasible, this is a **Global Minimum**.")
+                            res_msg = f"The point $v_0 = {point_tex}$ satisfies all KKT conditions."
+                            st.success(res_msg)
+                            st.markdown("Since the problem is Convex (assuming convexity of f and C) and Strictly Feasible, this is a **Global Minimum** (Theorem 9.34).")
+                            latex_report.append(f"\\section*{{Conclusion}}\n{res_msg}\n\nPer Theorem 9.34, if the problem is convex and strictly feasible, this is a global minimum.")
                         else:
-                            st.error(f"**NOT OPTIMAL.** The point {tuple(vals)} fails one or more KKT conditions.")
+                            res_msg = f"The point $v_0 = {point_tex}$ fails one or more KKT conditions."
+                            st.error(res_msg)
+                            latex_report.append(f"\\section*{{Conclusion}}\n{res_msg}")
+
+                        # OUTPUT CODE
+                        st.markdown("### 📋 Copy LaTeX Code")
+                        st.code("\n".join(latex_report), language="latex")
 
                 except Exception as e:
                     st.error(f"Error: {e}")
