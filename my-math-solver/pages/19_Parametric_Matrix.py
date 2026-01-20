@@ -2,152 +2,271 @@ import streamlit as st
 import sympy as sp
 import utils
 
-st.set_page_config(layout="wide")
-utils.setup_page()
+# 1. SETUP
+st.set_page_config(layout="wide", page_title="Parametric Matrix Analysis", page_icon="🎛️")
+try:
+    utils.setup_page()
+except AttributeError:
+    pass
 
-st.markdown("<h1 class='main-header'>Parametric Matrix Analysis</h1>", unsafe_allow_html=True)
+# --- CUSTOM CSS ---
 st.markdown("""
-**Exam Focus:** Problems involving parameters ($a, t, k$) instead of just numbers.
-* **Invertibility:** Find $t$ such that $\det(A) \\neq 0$ (Matrix is invertible).
-* **Definiteness:** Find $a$ such that $A$ is Positive Definite (using symbolic reduction).
-* **Quadratic Forms:** Convert a polynomial $f(x,y,z)$ into a symmetric matrix $A$.
+    <style>
+        .result-card {
+            background-color: #f8f9fa;
+            border-left: 5px solid #2196F3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .step-box {
+            font-family: 'Courier New', monospace;
+            background-color: #f1f1f1;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🎛️ Parametric Matrix Analysis")
+st.markdown("""
+**Curriculum Focus:** Analysis of matrices with parameters ($a, t, k$) using row operations.
+* **Invertibility:** Gaussian Elimination $\\rightarrow$ Row Echelon Form (Check Pivots).
+* **Definiteness:** Symmetric Reduction $\\rightarrow$ Diagonal Matrix $D$ (Check Signs).
 """)
 
+# --- HELPER FUNCTIONS ---
+
+def get_exam_latex(expr):
+    """Formats matrix with parentheses (pmatrix) per curriculum."""
+    return sp.latex(expr, mat_delim='(')
+
+def gaussian_elimination_pivots(matrix):
+    """
+    Reduces matrix to Row Echelon Form (REF) using fraction-free Gaussian elimination
+    to keep parameters readable. Returns the REF matrix and the pivots.
+    """
+    # echelon_form() in SymPy does fraction-free row reduction
+    ref_matrix = matrix.echelon_form()
+    # Extract diagonal entries (pivots)
+    pivots = [ref_matrix[i, i] for i in range(min(ref_matrix.rows, ref_matrix.cols))]
+    return ref_matrix, pivots
+
+def symmetric_reduction_diagonal(matrix):
+    """
+    Performs Schematic Symmetric Reduction (P^T A P) to find diagonal entries.
+    Returns the list of diagonal entries.
+    """
+    M = matrix.copy()
+    n = M.rows
+    diags = []
+    
+    for i in range(n):
+        # 1. Pivot Strategy
+        if M[i, i] == 0:
+            swap_idx = -1
+            for k in range(i + 1, n):
+                if M[k, k] != 0:
+                    swap_idx = k
+                    break
+            if swap_idx != -1:
+                M.row_swap(i, swap_idx)
+                M.col_swap(i, swap_idx)
+            else:
+                # Add row/col if no pivot found
+                for k in range(i + 1, n):
+                    if M[i, k] != 0:
+                        M.row_op(i, lambda r, j: r + M.row(k)[j])
+                        M.col_op(i, lambda c, j: c + M.col(k)[j])
+                        break
+        
+        pivot = M[i, i]
+        diags.append(pivot)
+        if pivot == 0: continue
+
+        # 2. Elimination
+        for j in range(i + 1, n):
+            if M[j, i] != 0:
+                factor = M[j, i] / pivot
+                M.row_op(j, lambda r, k: r - factor * M.row(i)[k])
+                M.col_op(j, lambda c, k: c - factor * M.col(i)[k])
+                
+    return diags
+
+# --- MAIN UI ---
+
 # Input Mode
-mode = utils.p_radio("Analysis Mode", 
-    ["1. Matrix Properties (Invertibility/Definiteness)", 
-     "2. Quadratic Form -> Matrix"], 
-    "param_mode", horizontal=True
+mode = st.radio("Select Analysis Mode:", 
+    ["1. Matrix Properties (Invertibility & Definiteness)", 
+     "2. Quadratic Form → Symmetric Matrix"], 
+    horizontal=True
 )
 
-if mode == "1. Matrix Properties (Invertibility/Definiteness)":
-    st.subheader("1. Input Matrix with Symbols")
-    
-    # Presets
-    preset = st.selectbox("Load Exam Example:", ["Custom", "Maj 2024 Q2 (Definiteness)", "Jan 2025 Q2 (Invertibility)"])
-    if preset == "Maj 2024 Q2 (Definiteness)":
-        def_mat = "[[1, 1, 1], [1, 2, 1], [1, 1, a]]"
-    elif preset == "Jan 2025 Q2 (Invertibility)":
-        def_mat = "[[2, 1], [1, 2]]" # The exam had a system, this is the A matrix part roughly
-    else:
-        def_mat = "[[1, a], [a, 1]]"
+st.divider()
 
-    mat_str = utils.p_text_area("Matrix A (use 'a', 't', 'k' etc):", "param_mat", def_mat)
+if mode == "1. Matrix Properties (Invertibility & Definiteness)":
+    col_input, col_info = st.columns([1, 1])
     
+    with col_input:
+        st.subheader("Input Matrix")
+        # Exam presets
+        preset = st.selectbox("Load Exam Template:", ["Custom", "Maj 2024 (Definiteness)", "Jan 2025 (System)"])
+        if preset == "Maj 2024 (Definiteness)":
+            def_mat = "[[1, 1, 1], [1, 2, 1], [1, 1, a]]"
+        elif preset == "Jan 2025 (System)":
+            def_mat = "[[2, 1], [1, 2]]"
+        else:
+            def_mat = "[[1, a], [a, 1]]"
+
+        mat_str = utils.p_text_area("Matrix A (Python list of lists):", "param_mat", def_mat)
+
     if st.button("Analyze Symbolic Matrix", type="primary"):
         try:
-            # Parse
-            a, b, c, t, k, x, y, z = sp.symbols('a b c t k x y z')
+            # 1. Parse Matrix
+            # Define common exam parameters as symbols
+            a, b, c, t, k, x, y, z = sp.symbols('a b c t k x y z', real=True)
             parse_locals = {'a':a, 'b':b, 'c':c, 't':t, 'k':k, 'x':x, 'y':y, 'z':z}
             
             mat_list = eval(mat_str, {"__builtins__": None}, parse_locals)
             A = sp.Matrix(mat_list)
             
-            # Display A
-            st.latex(f"A = {sp.latex(A)}")
-            
-            col1, col2 = st.columns(2)
-            
-            # --- INVERTIBILITY ---
-            with col1:
-                st.subheader("A. Invertibility")
-                det = A.det()
-                st.latex(f"\\det(A) = {sp.latex(det)}")
-                
-                if det == 0:
-                    st.error("Matrix is Singular for ALL values (Determinant is 0).")
-                elif det.is_number:
-                    if det != 0: st.success("Matrix is Always Invertible (Determinant is constant non-zero).")
-                else:
-                    st.write("Matrix is **Singular** (Not Invertible) when:")
-                    sols = sp.solve(det, dict=True)
-                    if sols:
-                        for s in sols:
-                            st.latex(f"{', '.join([f'{k} = {sp.latex(v)}' for k,v in s.items()])}")
-                    else:
-                        st.write("No real solutions found.")
+            # Show Input A
+            with col_info:
+                st.subheader("Parsed Matrix A")
+                st.latex(f"A = {get_exam_latex(A)}")
 
-            # --- DEFINITENESS (Symbolic Symmetric Reduction) ---
-            with col2:
-                st.subheader("B. Definiteness (Symmetric Reduction)")
-                if not A.is_symmetric():
-                    st.warning("Matrix is NOT symmetric. Definiteness analysis usually applies to symmetric matrices.")
-                
-                # Symbolic Reduction Algorithm
-                n = A.rows
-                D = A.copy()
-                steps = []
-                
-                # We perform raw row operations to get diagonals. 
-                # Note: Full symbolic pivoting is hard, we assume standard order works or warn.
-                try:
-                    for i in range(n):
-                        pivot = D[i,i]
-                        if pivot == 0:
-                            steps.append(f"Pivot at {i+1},{i+1} is 0. Analysis difficult without specific value.")
-                            continue
-                            
-                        for j in range(i+1, n):
-                            if D[j,i] != 0:
-                                factor = D[j,i]/pivot
-                                # Row op
-                                D.row_op(j, lambda r,idx: r - factor*D.row(i)[idx])
-                                # Col op
-                                D.col_op(j, lambda c,idx: c - factor*D.col(i)[idx])
+            st.divider()
+            
+            # Create two main analysis columns
+            c_inv, c_def = st.columns(2)
+
+            # --- A. INVERTIBILITY (GAUSSIAN ELIMINATION) ---
+            with c_inv:
+                with st.container(border=True):
+                    st.subheader("A. Invertibility")
+                    st.caption("Method: Gaussian Elimination (Row Echelon Form)")
                     
-                    diags = [D[i,i] for i in range(n)]
+                    # Compute REF
+                    ref, pivots = gaussian_elimination_pivots(A)
                     
-                    st.write("After Symmetric Reduction ($B^T A B = D$), the diagonal entries are:")
-                    for idx, d in enumerate(diags):
-                        st.latex(f"d_{{{idx+1}}} = {sp.latex(sp.simplify(d))}")
+                    st.write("**Row Echelon Form (REF):**")
+                    st.latex(f"{get_exam_latex(ref)}")
+                    
+                    st.write("**Pivots (Diagonal entries of REF):**")
+                    pivots_tex = ", ".join([sp.latex(p) for p in pivots])
+                    st.latex(f"p_1, \\dots, p_n = {pivots_tex}")
+                    
+                    # Logic: Invertible if all pivots != 0
+                    st.markdown("#### Conclusion:")
+                    zero_pivots = [p for p in pivots if p == 0]
+                    
+                    if zero_pivots:
+                        st.error("Matrix is **Singular** (Not Invertible).")
+                        st.write("Reason: One or more pivots are strictly zero.")
+                    else:
+                        # Symbolic check
+                        conds = []
+                        for p in pivots:
+                            if not p.is_number:
+                                conds.append(f"{sp.latex(p)} \\neq 0")
                         
-                    st.info("""
-                    **Conclusion Guide:**
-                    * **Pos. Definite:** All $d_i > 0$
-                    * **Pos. Semi-Definite:** All $d_i \ge 0$
-                    * **Indefinite:** Mixed signs
-                    """)
+                        if not conds:
+                            if all(p != 0 for p in pivots):
+                                st.success("Matrix is **Always Invertible**.")
+                        else:
+                            st.warning("Matrix is **Invertible** if:")
+                            st.latex(" \\quad \\text{and} \\quad ".join(conds))
+
+            # --- B. DEFINITENESS (SYMMETRIC REDUCTION) ---
+            with c_def:
+                with st.container(border=True):
+                    st.subheader("B. Definiteness")
+                    st.caption("Method: Symmetric Reduction (Diagonalization)")
                     
-                except Exception as e:
-                    st.error(f"Symbolic reduction failed: {e}")
+                    if not A.is_symmetric():
+                        st.error("Matrix is NOT symmetric.")
+                        st.write("Definiteness analysis requires a symmetric matrix.")
+                    else:
+                        # Compute Symmetric Reduction
+                        diags = symmetric_reduction_diagonal(A)
+                        simple_diags = [sp.simplify(d) for d in diags]
+                        
+                        st.write("**Diagonal Entries ($d_i$):**")
+                        # Display D matrix
+                        D_mat = sp.diag(*simple_diags)
+                        st.latex(f"D = {get_exam_latex(D_mat)}")
+                        
+                        st.markdown("#### Conclusion (Thm 8.12):")
+                        
+                        # Logic for verdict
+                        # Note: We can't always evaluate symbolic definiteness fully, 
+                        # so we display the conditions.
+                        
+                        st.markdown("**Conditions for Positive Definite:**")
+                        pd_conds = [f"{sp.latex(d)} > 0" for d in simple_diags]
+                        st.latex(" \\quad \\text{and} \\quad ".join(pd_conds))
+                        
+                        st.markdown("**Conditions for Positive Semi-Definite:**")
+                        psd_conds = [f"{sp.latex(d)} \\ge 0" for d in simple_diags]
+                        st.latex(" \\quad \\text{and} \\quad ".join(psd_conds))
+
+                        with st.expander("Show Argument Logic"):
+                            st.write("From Symmetric Reduction, we have found $D$.")
+                            st.write("- If all $d_i > 0 \\implies$ Positive Definite.")
+                            st.write("- If all $d_i < 0 \\implies$ Negative Definite.")
+                            st.write("- If mixed signs $\\implies$ Indefinite.")
 
         except Exception as e:
-            st.error(f"Error parsing matrix: {e}")
+            st.error(f"Analysis Error: {e}")
+            st.write("Check your matrix syntax.")
 
-elif mode == "2. Quadratic Form -> Matrix":
-    st.subheader("2. Polynomial to Symmetric Matrix")
-    st.info("Convert $f(x,y,z)$ into $A$ such that $f(v) = v^T A v$. (Maj 2025 Q2)")
+elif mode == "2. Quadratic Form → Symmetric Matrix":
+    st.subheader("Polynomial to Symmetric Matrix")
+    st.info("Converts $f(x,y,z)$ into matrix $A$ such that $f(v) = v^T A v$.")
     
-    poly_str = utils.p_text_input("Polynomial f(x, y...):", "param_poly", "x**2 + x*y + y**2 + x*z + z**2 + y*z")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        poly_str = utils.p_text_input("Polynomial f(x, y...):", "param_poly", "x**2 + x*y + y**2 + x*z + z**2 + y*z")
     
-    if st.button("Extract Matrix", type="primary"):
+    if st.button("Extract Matrix A", type="primary"):
         try:
+            # 1. Parse Expression
             expr = utils.parse_expr(poly_str)
             vars_sym = sorted(list(expr.free_symbols), key=lambda s: s.name)
             
-            st.write(f"Variables found: {vars_sym}")
+            with col2:
+                st.write("**Variables:**")
+                st.latex(f"({', '.join([sp.latex(v) for v in vars_sym])})")
             
-            # The Matrix A is 1/2 * Hessian (for quadratic forms)
-            # This works perfectly because Hessian[i,j] = d^2f / dx_i dx_j
-            # For x_i^2 term: deriv is 2, Hessian is 2. 1/2 * 2 = 1. Correct.
-            # For x_i*x_j term: deriv is 1, Hessian is 1. 1/2 * 1 = 0.5. Correct (split between A_ij and A_ji).
-            
+            # 2. Compute Matrix (Hessian / 2)
+            # Curriculum method: The matrix entry a_ij is coefficient of x_i x_j (divided by 2 if i!=j)
+            # This is mathematically equivalent to 1/2 Hessian.
             H = sp.hessian(expr, vars_sym)
             A = sp.Rational(1, 2) * H
             
-            st.subheader("Resulting Symmetric Matrix A")
-            st.latex(f"A = {sp.latex(A)}")
+            # 3. Display
+            st.divider()
             
-            # Verify
-            v = sp.Matrix(vars_sym)
-            check = sp.expand((v.T * A * v)[0])
-            st.write("Verification ($v^T A v$):")
-            st.latex(sp.latex(check))
+            c_res1, c_res2 = st.columns(2)
             
-            if sp.simplify(check - expr) == 0:
-                st.success("Verified! The matrix exactly represents the polynomial.")
-            else:
-                st.error("Verification failed. Is the function purely quadratic?")
+            with c_res1:
+                st.subheader("Symmetric Matrix A")
+                st.latex(f"A = {get_exam_latex(A)}")
+                with st.expander("Copy LaTeX"):
+                    st.code(f"A = {get_exam_latex(A)}", language="latex")
+            
+            with c_res2:
+                st.subheader("Verification")
+                v = sp.Matrix(vars_sym)
+                check = sp.expand((v.T * A * v)[0])
+                st.write("Calculating $v^T A v$:")
+                st.latex(sp.latex(check))
                 
+                if sp.simplify(check - expr) == 0:
+                    st.success("✅ Verified")
+                else:
+                    st.error("❌ Verification Failed (Is it linear/constant?)")
+
         except Exception as e:
             st.error(f"Error: {e}")

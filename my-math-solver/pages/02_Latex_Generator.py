@@ -29,7 +29,8 @@ tabs = st.tabs([
     "Calculus & Sums",       # Restored Feature
     "Convexity (Grad/Hess)", # Exam Power Tool
     "Sets & Topology",
-    "Tables"
+    "Tables",
+    "Symbols"
 ])
 
 # ==========================================
@@ -402,3 +403,95 @@ with tabs[6]:
                 st.error(f"Processing Error: {e}")
         else:
             st.info("Enter data to generate table.")
+
+            # ==========================================
+# TAB: LATEX SYMBOLS CHEAT SHEET
+# ==========================================
+# Make sure to add "Symbols" to your st.tabs list definition!
+# e.g., tabs = st.tabs([..., "Symbols"])
+
+# Change index '7' to match the actual position in your tabs list
+with tabs[7]: 
+    st.markdown("### 📖 Course Reference: LaTeX Symbols")
+    st.caption("Symbols specifically found in 'Introduction to Mathematics and Optimization' exams.")
+
+    # Dictionary of symbols tailored to your curriculum
+    # Excluded: \N, \Z, \Q, \R (as you have custom commands)
+    symbol_cats = {
+        "Logic & Quantifiers": [
+            ("Implication", "\\implies", "If P, then Q"),
+            ("Bi-implication", "\\iff", "P if and only if Q"),
+            ("For All", "\\forall", "For all x..."),
+            ("Exists", "\\exists", "There exists an x..."),
+            ("Logical And", "\\land", "P and Q"),
+            ("Logical Or", "\\lor", "P or Q"),
+            ("Negation", "\\neg", "Not P"),
+            ("Contradiction", "\\bot", "Contradiction / False"),
+        ],
+        "Sets & Topology": [
+            ("Boundary", "\\partial C", "Boundary of set C"),
+            ("Interior", "C^\\circ", "Interior of set C"),
+            ("Closure", "\\overline{C}", "Closure of C"),
+            ("Set Difference", "\\setminus", "A minus B (A \\ B)"),
+            ("Intersection", "\\cap", "A intersect B"),
+            ("Union", "\\cup", "A union B"),
+            ("Subset", "\\subseteq", "Subset or equal"),
+            ("Empty Set", "\\emptyset", "Null set"),
+            ("In / Not In", "\\in / \\notin", "Element membership"),
+        ],
+        "Linear Algebra": [
+            ("Transpose", "A^T", "Matrix Transpose"),
+            ("Inverse", "A^{-1}", "Matrix Inverse"),
+            ("Determinant", "\\det(A)", "Determinant"),
+            ("Norm", "\\| \\mathbf{x} \\|", "Vector Norm"),
+            ("Dot Product", "\\mathbf{x} \\cdot \\mathbf{y}", "Dot product"),
+            ("Orthogonal", "\\perp", "Perpendicular / Complement"),
+            ("Vector (Bold)", "\\mathbf{x}", "Vector x"),
+            ("Identity Matrix", "I_n", "Identity matrix size n"),
+        ],
+        "Calculus & Optimization": [
+            ("Gradient", "\\nabla f(x)", "Gradient vector"),
+            ("Hessian", "\\nabla^2 f(x)", "Hessian matrix"),
+            ("Partial Deriv", "\\frac{\\partial f}{\\partial x}", "Partial derivative"),
+            ("Lagrange Mult", "\\lambda", "Lambda (Multiplier)"),
+            ("Approaches", "\\to", "x approaches infinity"),
+            ("Limit", "\\lim_{x \\to a}", "Limit"),
+            ("Integral", "\\int_{a}^{b}", "Definite integral"),
+            ("Sum", "\\sum_{i=1}^{n}", "Summation"),
+        ],
+        "Relations": [
+            ("Approx", "\\approx", "Approximately equal"),
+            ("Not Equal", "\\ne", "Not equal"),
+            ("Less/Equal", "\\le", "Less than or equal"),
+            ("Greater/Equal", "\\ge", "Greater than or equal"),
+            ("Proportional", "\\propto", "Proportional to"),
+        ]
+    }
+
+    # Layout: 2 Columns for categories
+    left_col, right_col = st.columns(2)
+    
+    # Helper function to render a category
+    def render_category(container, title, items):
+        with container:
+            st.subheader(title)
+            # Create a clean table-like look using markdown tables or columns
+            # Using columns for copy-paste ability
+            for name, code, desc in items:
+                c1, c2, c3 = st.columns([0.3, 0.3, 0.4])
+                with c1: st.markdown(f"**{name}**")
+                with c2: st.code(code, language="latex")
+                with c3: st.latex(code)
+            st.divider()
+
+    # Distribute categories between columns
+    cat_keys = list(symbol_cats.keys())
+    
+    # Left Column
+    render_category(left_col, "Sets & Topology", symbol_cats["Sets & Topology"])
+    render_category(left_col, "Logic & Quantifiers", symbol_cats["Logic & Quantifiers"])
+    render_category(left_col, "Relations", symbol_cats["Relations"])
+    
+    # Right Column
+    render_category(right_col, "Calculus & Optimization", symbol_cats["Calculus & Optimization"])
+    render_category(right_col, "Linear Algebra", symbol_cats["Linear Algebra"])

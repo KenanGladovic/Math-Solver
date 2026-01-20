@@ -4,8 +4,8 @@ import utils
 import datetime
 
 # --- 🛠️ UPDATE THIS DATE BEFORE SHARING ---
-LAST_UPDATE = "January 19, 2026"
-VERSION = "v3.2"
+LAST_UPDATE = "20 Jan 2026, 12:00 CET"
+VERSION = "v3.3"
 # ------------------------------------------
 
 # 1. Page Configuration

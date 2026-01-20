@@ -133,7 +133,7 @@ with col2:
                     log_latex(f"{sp.latex(eq)} = 0 \\quad \\text{{(w.r.t. }} {var.name} \\text{{)}}")
 
                 # Output Code Block
-                st.markdown("### 📋 Copy LaTeX Code")
+                st.markdown("### 📋 LaTeX Code")
                 st.code("\n".join(latex_report), language="latex")
 
             else:
@@ -292,7 +292,7 @@ with col2:
                             latex_report.append(f"\\section*{{Conclusion}}\n{res_msg}")
 
                         # OUTPUT CODE
-                        st.markdown("### 📋 Copy LaTeX Code")
+                        st.markdown("### 📋 LaTeX Code")
                         st.code("\n".join(latex_report), language="latex")
 
                 except Exception as e:
