@@ -131,7 +131,7 @@ if f is not None and len(vars_sym) > 0:
                 st.markdown(f"#### 📍 Critical Point $P_{{{i+1}}}$")
                 
                 # Setup Data
-                coords = [pt[v] for v in vars_sym]
+                coords = [pt.get(v, v) for v in vars_sym]
                 coords_tex = f"({', '.join([sp.latex(c) for c in coords])})"
                 H_num = hessian.subs(pt)
                 
