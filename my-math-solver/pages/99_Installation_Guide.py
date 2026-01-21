@@ -8,8 +8,11 @@ utils.setup_page()
 st.markdown("<h1 class='main-header'> Local Installation Guide</h1>", unsafe_allow_html=True)
 
 # --- CONFIGURATION ---
-# REPLACE THIS LINK with your actual Google Drive folder link
+# 1. REPLACE THIS LINK with your actual Google Drive folder link
 drive_link = "https://drive.google.com/drive/folders/1teuqC0BvSyBFGmAB-HsWI_5CWGCidxzp?usp=drive_link"
+
+# 2. UPDATE THIS DATE whenever you upload new files to Drive
+last_drive_update = "January 21, 11:00"
 
 # Create two distinct columns with a large gap
 left_col, right_col = st.columns(2, gap="large")
@@ -26,6 +29,9 @@ with left_col:
     2. Download the folder (or `.zip` file).
     3. **Save/Unzip** the contents to a local directory (e.g., Desktop).
     """)
+    
+    # Display the last update time here
+    st.caption(f"📅 **Latest Version on Drive:** {last_drive_update}")
     
     st.divider()
     
@@ -85,6 +91,24 @@ with right_col:
     
     with st.expander("'Streamlit' is not recognized?"):
         st.write("The installation process in Part 1 was not completed successfully. Please try running the installation command again.")
+
+# ==========================================
+# FULL WIDTH: UPDATE GUIDE
+# ==========================================
+st.divider()
+
+with st.container():
+    st.warning("### 🔄 How to Update the Application")
+    
+    st.markdown(f"""
+    If a new version is released (Latest upload: **{last_drive_update}**), you do **not** need to reinstall everything.
+    
+    1. Go to the **[Google Drive Folder]({drive_link})**.
+    2. Download the latest **`app.py`** file and the **`pages`** folder.
+    3. Navigate to your local folder where the tool is currently installed.
+    4. **Replace** the existing `app.py` and `pages` folder with the new versions.
+    5. Restart the application.
+    """)
 
 # --- FOOTER ---
 st.markdown("---")
