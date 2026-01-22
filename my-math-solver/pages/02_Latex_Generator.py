@@ -26,8 +26,9 @@ tabs = st.tabs([
     "Expression Converter", 
     "Matrices & Vectors", 
     "Optimization & Systems", 
-    "Calculus & Sums",       # Restored Feature
-    "Convexity (Grad/Hess)", # Exam Power Tool
+    "Calculus & Sums",       
+    "Convexity (Grad/Hess)", 
+    "Fourier-Motzkin",
     "Sets & Topology",
     "Tables",
     "Symbols"
@@ -260,9 +261,74 @@ with tabs[4]:
                 st.error(f"Calculation Error: {e}")
 
 # ==========================================
-# TAB 6: SETS & TOPOLOGY
+# TAB 6: FOURIER-MOTZKIN
 # ==========================================
 with tabs[5]:
+    st.markdown("### Fourier-Motzkin Formatting")
+    st.write("Generates aligned inequality steps and max/min summary.")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        fm_var = utils.p_text_input("Variable:", "fm_var", "w")
+        st.caption("Lower Bounds ($L \le w$)")
+        fm_lower = utils.p_text_area("Lower Bounds (comma sep):", "fm_lower", "11/5, 5/3, 2, 0")
+        st.caption("Upper Bounds ($w \le U$)")
+        fm_upper = utils.p_text_area("Upper Bounds (comma sep):", "fm_upper", "27/5, 15/2, 6")
+        
+    with col2:
+        if st.button("Generate FM LaTeX", type="primary"):
+            # 1. Parse Inputs
+            def fmt_val(v):
+                v = v.strip()
+                if "/" in v and "\\" not in v:
+                    n, d = v.split("/")
+                    return f"\\frac{{{n}}}{{{d}}}"
+                return v
+
+            lows = [fmt_val(x) for x in fm_lower.split(",") if x.strip()]
+            ups = [fmt_val(x) for x in fm_upper.split(",") if x.strip()]
+            
+            # 2. Build Block 1: Aligned Inequalities
+            rows = []
+            
+            # Uppers: & && w &\leq& {U} \\[6pt]
+            for u in ups:
+                rows.append(f"& && {fm_var} &\\leq& {u} \\\\[6pt]")
+                
+            # Lowers: &{L} &\leq& w && \\[6pt]
+            for l in lows:
+                rows.append(f"&{l} &\\leq& {fm_var} && \\\\[6pt]")
+                
+            block1 = "\\begin{alignedat}{5}\n" + "\n".join(rows) + "\n\\end{alignedat}"
+            
+            # 3. Build Block 2: Max/Min Summary
+            l_str = ",\\; ".join(lows) if lows else "-\\infty"
+            u_str = ",\\; ".join(ups) if ups else "\\infty"
+            
+            summary = (
+                "\\begin{alignedat}{5}\n"
+                f"&\\max({l_str})\\ &\\leq\\ &{fm_var}\\ &\\\\ &\\\\\n"
+                f"&\\ &\\ &{fm_var}\\ &\\leq\\ &\\min({u_str})\n"
+                "\\end{alignedat}"
+            )
+            
+            st.subheader("Output")
+            
+            # PREVIEW (Render separately to avoid double delimiter issues)
+            st.markdown("**Preview:**")
+            st.latex(block1)
+            st.latex(summary)
+            
+            # CODE (Unified block with delimiters for Copy-Paste)
+            final_code = f"\\[\n{block1}\n\\]\n\\[\n{summary}\n\\]"
+            st.markdown("**LaTeX Code:**")
+            st.code(final_code, language="latex")
+
+# ==========================================
+# TAB 7: SETS & TOPOLOGY
+# ==========================================
+with tabs[6]:
     col1, col2 = st.columns([1, 1])
     with col1:
         st.subheader("Set Definition")
@@ -293,9 +359,9 @@ with tabs[5]:
         st.code(f"$$ {res} $$", language="latex")
 
 # ==========================================
-# TAB 7: TABLES (Professional & Course Tailored)
+# TAB 8: TABLES (Professional & Course Tailored)
 # ==========================================
-with tabs[6]:
+with tabs[7]:
     st.markdown("### 📊 Exam Table Generator")
     col1, col2 = st.columns([1, 1])
     
@@ -405,9 +471,9 @@ with tabs[6]:
             st.info("Enter data to generate table.")
 
 # ==========================================
-# TAB 8: LATEX SYMBOLS CHEAT SHEET
+# TAB 9: LATEX SYMBOLS CHEAT SHEET
 # ==========================================
-with tabs[7]: 
+with tabs[8]: 
     st.markdown("### 📖 Course Reference: LaTeX Symbols")
     st.caption("Symbols specifically found in 'Introduction to Mathematics and Optimization' exams.")
 

@@ -4,8 +4,8 @@ import utils
 import datetime
 
 # --- 🛠️ UPDATE THIS DATE BEFORE SHARING ---
-LAST_UPDATE = "20 Jan 2026, 12:00 CET"
-VERSION = "v3.3"
+LAST_UPDATE = "22 Jan 2026, 14:00 CET"
+VERSION = "Final Version"
 # ------------------------------------------
 
 # 1. Page Configuration
@@ -18,6 +18,7 @@ utils.setup_page()
 st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
 
 # 4. Countdown Timer (JavaScript Implementation)
+#    - Exam Date: Jan 23, 2026 at 10:00:00
 target_date = "Jan 23, 2026 10:00:00"
 
 st.components.v1.html(
@@ -26,6 +27,9 @@ st.components.v1.html(
         <h3 style="margin-bottom: 5px;">Countdown to Exam</h3>
         <div id="countdown" style="font-size: 2.5rem; font-weight: bold; color: #d32f2f;">
             Loading...
+        </div>
+        <div id="panic-msg" style="font-size: 1.5rem; font-weight: bold; color: red; display: none;">
+            ⚠️ START PANICKING ⚠️
         </div>
     </div>
 
@@ -36,38 +40,37 @@ st.components.v1.html(
       var now = new Date().getTime();
       var distance = countDownDate - now;
 
+      // Time calculations
       var days = Math.floor(distance / (1000 * 60 * 60 * 24));
       var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       var seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
+      // Display the result
       document.getElementById("countdown").innerHTML = days + "d " + hours + "h "
       + minutes + "m " + seconds + "s ";
 
+      // 2 HOURS LEFT LOGIC (2 hours * 60 mins * 60 secs * 1000 ms = 7,200,000)
+      if (distance > 0 && distance < 7200000) {{
+          document.getElementById("panic-msg").style.display = "block";
+          document.getElementById("countdown").style.color = "#FF5722"; // Orange/Red warning
+      }} else {{
+          document.getElementById("panic-msg").style.display = "none";
+      }}
+
+      // EXAM START LOGIC
       if (distance < 0) {{
         clearInterval(x);
-        document.getElementById("countdown").innerHTML = "EXAM STARTED / FINISHED";
-        document.getElementById("countdown").style.color = "#4CAF50";
+        document.getElementById("panic-msg").style.display = "none"; // Hide panic
+        document.getElementById("countdown").innerHTML = "Husk at denne eksamen er gratis";
+        document.getElementById("countdown").style.color = "#4CAF50"; // Green for go
+        document.getElementById("countdown").style.fontSize = "2rem"; // Slightly smaller to fit text
       }}
     }}, 1000);
     </script>
     """,
-    height=120
+    height=150
 )
-
-# 5. Image Section
-current_dir = os.path.dirname(os.path.abspath(__file__))
-image_path = None
-for ext in ['jpg', 'png', 'jpeg']:
-    temp_path = os.path.join(current_dir, f'background.{ext}')
-    if os.path.exists(temp_path):
-        image_path = temp_path
-        break
-
-if image_path:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(image_path, caption='', width=600)
 
 # 6. Version & Footer
 st.markdown(f"""

@@ -6,6 +6,7 @@ st.set_page_config(layout="wide", page_title="Fourier-Motzkin Solver")
 utils.setup_page()
 
 st.markdown("<h1 class='main-header'>Fourier-Motzkin Elimination</h1>", unsafe_allow_html=True)
+st.markdown("")
 
 # --- HELPER: Parse Points for IMO Jan 25 Style Problems ---
 def generate_separation_constraints(points_str):
