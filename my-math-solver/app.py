@@ -17,6 +17,11 @@ utils.setup_page()
 # 3. Main Title
 st.markdown("<h1 class='main-header'>Welcome to Kenan's IMO calculator</h1>", unsafe_allow_html=True)
 
+# --- 🆕 ADDED: Safe Launch Command ---
+st.info("💡 **Safe Launch Command (Offline Mode)**")
+st.code("py -m streamlit run App.py --browser.gatherUsageStats=false --server.headless=true --server.address=localhost", language="batch")
+# -------------------------------------
+
 # 4. Countdown Timer (JavaScript Implementation)
 #    - Exam Date: Jan 23, 2026 at 10:00:00
 target_date = "Jan 23, 2026 10:00:00"
