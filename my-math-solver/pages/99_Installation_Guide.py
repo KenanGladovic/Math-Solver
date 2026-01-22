@@ -12,7 +12,7 @@ st.markdown("<h1 class='main-header'> Local Installation Guide</h1>", unsafe_all
 drive_link = "https://drive.google.com/drive/folders/1teuqC0BvSyBFGmAB-HsWI_5CWGCidxzp?usp=drive_link"
 
 # 2. UPDATE THIS DATE whenever you upload new files to Drive
-last_drive_update = "January 21, 11:00"
+last_drive_update = "January 22, 14:00"
 
 # Create two distinct columns with a large gap
 left_col, right_col = st.columns(2, gap="large")
