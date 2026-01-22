@@ -156,8 +156,30 @@ with col2:
         # Simpler Warning Note
         st.warning("⚠️ **Performance Note:** Non-linear systems can be hard to solve. If the spinner runs indefinitely, please restart the app.")
         
-        # Curriculum Note (Theorem 9.34)
-        st.info("📘 **Curriculum Note (Theorem 9.34):** If the objective function $f(x)$ is **Convex** and the feasible set is Convex, any Local Minimum (KKT Point) is also a **Global Minimum**.")
+        # --- NEW CURRICULUM NOTE SECTION ---
+        with st.expander("📘 Curriculum Note: Uniqueness & Convexity (Theorems 9.34 & 6.13)", expanded=True):
+            st.markdown("""
+            #### ❓ Question: Is there more than one solution to the KKT conditions?
+            **Answer:** It depends on the **convexity** of the objective function $f(x)$.
+
+            ---
+            
+            #### **1. The General Convex Case**
+            * **Assumptions:** $f(x)$ is **Convex**, and the feasible set is Convex.
+            * **Theorem 9.34 (Sufficiency):** States that any point satisfying the KKT conditions is a **Global Minimum**.
+            * **Number of Solutions:** There **can be more than one** solution (multiple KKT points).
+            * **Explanation:** If the function is convex but "flat" (like a valley floor), multiple different $x$ values can give the same optimal objective value. All these points satisfy the KKT conditions.
+            * **Theorem 6.13:** Guarantees that all these local minima (KKT points) are **Global Minima**.
+
+            
+
+            #### **2. The Strictly Convex Case**
+            * **Assumptions:** $f(x)$ is **Strictly Convex**, and the feasible set is Convex.
+            * **Uniqueness:** The global minimum is **unique**.
+            * **Number of Solutions:** There is essentially only **1 solution** for the optimal point $x$.
+            * **Explanation:** Strict convexity ensures the graph curves upward everywhere (no flat regions). Therefore, only one specific $x^*$ minimizes the function.
+            """)
+        # -----------------------------------
 
         if st.button("🚀 Solve KKT System", type="primary", key="btn_solve"):
             if valid_input and f_expr:

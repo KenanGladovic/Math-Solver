@@ -404,67 +404,57 @@ with tabs[6]:
         else:
             st.info("Enter data to generate table.")
 
-            # ==========================================
-# TAB: LATEX SYMBOLS CHEAT SHEET
 # ==========================================
-# Make sure to add "Symbols" to your st.tabs list definition!
-# e.g., tabs = st.tabs([..., "Symbols"])
-
-# Change index '7' to match the actual position in your tabs list
+# TAB 8: LATEX SYMBOLS CHEAT SHEET
+# ==========================================
 with tabs[7]: 
     st.markdown("### 📖 Course Reference: LaTeX Symbols")
     st.caption("Symbols specifically found in 'Introduction to Mathematics and Optimization' exams.")
 
     # Dictionary of symbols tailored to your curriculum
-    # Excluded: \N, \Z, \Q, \R (as you have custom commands)
     symbol_cats = {
+        "Sets & Numbers": [
+            ("Natural Numbers", "\\mathbb{N}", "Set {1, 2, 3...}"),
+            ("Integers", "\\mathbb{Z}", "Set {..., -1, 0, 1, ...}"),
+            ("Rationals", "\\mathbb{Q}", "Fractions"),
+            ("Real Numbers", "\\mathbb{R}", "Continuum"),
+            ("Subset", "\\subseteq", "Subset or equal"),
+            ("Strict Subset", "\\subsetneq", "A is strictly inside B"),
+            ("Empty Set", "\\emptyset", "Set with no elements"),
+            ("Set Difference", "\\setminus", "A minus B (A \\ B)"),
+            ("Intersection", "\\cap", "A intersect B"),
+            ("Union", "\\cup", "A union B"),
+            ("Symm. Diff.", "\\Delta", "Symmetric Difference"),
+        ],
         "Logic & Quantifiers": [
             ("Implication", "\\implies", "If P, then Q"),
             ("Bi-implication", "\\iff", "P if and only if Q"),
             ("For All", "\\forall", "For all x..."),
             ("Exists", "\\exists", "There exists an x..."),
-            ("Logical And", "\\land", "P and Q"),
-            ("Logical Or", "\\lor", "P or Q"),
+            ("Logical And", "\\wedge", "P and Q (Use \\wedge)"),
+            ("Logical Or", "\\vee", "P or Q (Use \\vee)"),
             ("Negation", "\\neg", "Not P"),
-            ("Contradiction", "\\bot", "Contradiction / False"),
         ],
-        "Sets & Topology": [
+        "Topology": [
             ("Boundary", "\\partial C", "Boundary of set C"),
             ("Interior", "C^\\circ", "Interior of set C"),
             ("Closure", "\\overline{C}", "Closure of C"),
-            ("Set Difference", "\\setminus", "A minus B (A \\ B)"),
-            ("Intersection", "\\cap", "A intersect B"),
-            ("Union", "\\cup", "A union B"),
-            ("Subset", "\\subseteq", "Subset or equal"),
-            ("Empty Set", "\\emptyset", "Null set"),
-            ("In / Not In", "\\in / \\notin", "Element membership"),
+            ("Open Ball", "B(u, r)", "Ball center u radius r"),
         ],
         "Linear Algebra": [
-            ("Transpose", "A^T", "Matrix Transpose"),
+            ("Transpose", "A^\\top", "Matrix Transpose (Use \\top)"),
             ("Inverse", "A^{-1}", "Matrix Inverse"),
-            ("Determinant", "\\det(A)", "Determinant"),
-            ("Norm", "\\| \\mathbf{x} \\|", "Vector Norm"),
-            ("Dot Product", "\\mathbf{x} \\cdot \\mathbf{y}", "Dot product"),
-            ("Orthogonal", "\\perp", "Perpendicular / Complement"),
-            ("Vector (Bold)", "\\mathbf{x}", "Vector x"),
-            ("Identity Matrix", "I_n", "Identity matrix size n"),
+            ("Dot Product", "u \\cdot v", "Dot product"),
+            ("Norm", "|u|", "Vector Norm (Single bars)"),
+            ("Orthogonal", "\\perp", "Perpendicular"),
+            ("Vector", "\\begin{pmatrix} x \\\\ y \\end{pmatrix}", "Column Vector"),
         ],
         "Calculus & Optimization": [
             ("Gradient", "\\nabla f(x)", "Gradient vector"),
             ("Hessian", "\\nabla^2 f(x)", "Hessian matrix"),
             ("Partial Deriv", "\\frac{\\partial f}{\\partial x}", "Partial derivative"),
-            ("Lagrange Mult", "\\lambda", "Lambda (Multiplier)"),
-            ("Approaches", "\\to", "x approaches infinity"),
-            ("Limit", "\\lim_{x \\to a}", "Limit"),
-            ("Integral", "\\int_{a}^{b}", "Definite integral"),
+            ("Lagrange Mult", "\\lambda", "Lambda"),
             ("Sum", "\\sum_{i=1}^{n}", "Summation"),
-        ],
-        "Relations": [
-            ("Approx", "\\approx", "Approximately equal"),
-            ("Not Equal", "\\ne", "Not equal"),
-            ("Less/Equal", "\\le", "Less than or equal"),
-            ("Greater/Equal", "\\ge", "Greater than or equal"),
-            ("Proportional", "\\propto", "Proportional to"),
         ]
     }
 
@@ -475,8 +465,6 @@ with tabs[7]:
     def render_category(container, title, items):
         with container:
             st.subheader(title)
-            # Create a clean table-like look using markdown tables or columns
-            # Using columns for copy-paste ability
             for name, code, desc in items:
                 c1, c2, c3 = st.columns([0.3, 0.3, 0.4])
                 with c1: st.markdown(f"**{name}**")
@@ -484,14 +472,11 @@ with tabs[7]:
                 with c3: st.latex(code)
             st.divider()
 
-    # Distribute categories between columns
-    cat_keys = list(symbol_cats.keys())
-    
     # Left Column
-    render_category(left_col, "Sets & Topology", symbol_cats["Sets & Topology"])
+    render_category(left_col, "Sets & Numbers", symbol_cats["Sets & Numbers"])
     render_category(left_col, "Logic & Quantifiers", symbol_cats["Logic & Quantifiers"])
-    render_category(left_col, "Relations", symbol_cats["Relations"])
     
     # Right Column
-    render_category(right_col, "Calculus & Optimization", symbol_cats["Calculus & Optimization"])
     render_category(right_col, "Linear Algebra", symbol_cats["Linear Algebra"])
+    render_category(right_col, "Topology", symbol_cats["Topology"])
+    render_category(right_col, "Calculus & Optimization", symbol_cats["Calculus & Optimization"])
